@@ -18,18 +18,18 @@ connectDB();
 // ==========================================
 app.use(helmet()); // Protège l'application en configurant divers en-têtes HTTP
 app.use(cors({
-    origin: '*', // En production, tu remplaceras par l'URL de ton app Angular
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json()); // Permet à Express de lire le corps (body) des requêtes en JSON
 
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/documents', documentRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
 // ==========================================
 // ROUTES DE TEST
 // ==========================================
-app.get('/api/v1/health', (req: Request, res: Response) => {
+app.get('/api/health', (req: Request, res: Response) => {
     res.status(200).json({
         status: 'success',
         message: 'Le système intelligent de gestion des examens est opérationnel',
