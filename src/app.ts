@@ -5,6 +5,9 @@ import * as dotenv from 'dotenv';
 import { connectDB } from './config/db'; // <-- Import de la base de données
 import authRoutes from './routes/auth.routes'; // <-- Import des routes
 import documentRoutes from './routes/document.routes';
+import candidatRoutes from './routes/candidat.routes';
+import presenceRoutes from './routes/presence.routes';
+import adminRoutes from './routes/admin.routes';
 
 // Chargement des variables d'environnement (.env)
 dotenv.config();
@@ -13,12 +16,17 @@ const app: Application = express();
 
 connectDB();
 
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 // ==========================================
 // MIDDLEWARES DE SÉCURITÉ & CONFIGURATION
 // ==========================================
 app.use(helmet()); // Protège l'application en configurant divers en-têtes HTTP
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -26,6 +34,9 @@ app.use(express.json()); // Permet à Express de lire le corps (body) des requê
 
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/candidats', candidatRoutes);
+app.use('/api/presence', presenceRoutes);
+app.use('/api/admin', adminRoutes);
 // ==========================================
 // ROUTES DE TEST
 // ==========================================

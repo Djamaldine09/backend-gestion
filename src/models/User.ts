@@ -7,7 +7,7 @@ export interface IUser extends Document {
     prenom: string;
     email: string;
     motDePasse: string;
-    role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CANDIDAT';
+    role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     telephone?: string;
     comparePassword(enteredPassword: string): Promise<boolean>;
 }
@@ -19,7 +19,7 @@ const UserSchema: Schema = new Schema({
     motDePasse: { type: String, required: true, minlength: 6 },
     role: { 
         type: String, 
-        enum: ['ADMIN', 'RESPONSABLE', 'SURVEILLANT', 'CANDIDAT'], 
+        enum: ['ADMIN', 'RESPONSABLE', 'SURVEILLANT', 'CORRECTEUR', 'CANDIDAT'], 
         default: 'CANDIDAT' 
     },
     telephone: { type: String } // Utile pour les notifications SMS et le paiement mobile

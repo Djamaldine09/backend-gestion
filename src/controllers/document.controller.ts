@@ -1,9 +1,18 @@
+import crypto from 'crypto';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Resultat from '../models/Resultat';
 import Candidat from '../models/Candidat';
 import User from '../models/User';
 import PDFDocument from 'pdfkit';
+
+const QRCode = require('qrcode');
+
+const QR_SECRET = process.env.QR_SECRET || 'examgest-secret';
+
+function createQrHash(payload: string): string {
+    return crypto.createHmac('sha256', QR_SECRET).update(payload).digest('hex');
+}
 
 export const telechargerRelevePDF = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -109,6 +118,100 @@ export const telechargerRelevePDF = async (req: AuthenticatedRequest, res: Respo
 
     } catch (error: any) {
         // En cas d'erreur, on renvoie du JSON classique
+        if (!res.headersSent) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+};
+
+export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+        const candidat = await Candidat.findOne({ user: userId }).populate({ path: 'user', select: 'nom prenom email' });
+
+        if (!candidat) {
+            res.status(404).json({ message: 'Candidat introuvable.' });
+            return;
+        }
+
+        const convocation = candidat.convocation;
+        if (!convocation) {
+            res.status(404).json({ message: 'Convocation non générée pour ce candidat.' });
+            return;
+        }
+
+        const centre = convocation.centre;
+        const payloadSource = `${candidat._id}|${candidat.numeroMatricule || 'N/A'}|${convocation.examenId}|${convocation.salle}|${convocation.numeroPlace}`;
+        const hash = createQrHash(payloadSource);
+        const qrPayload = JSON.stringify({
+            v: 1,
+            candidatId: String(candidat._id),
+            matricule: candidat.numeroMatricule || 'N/A',
+            examenId: convocation.examenId,
+            salle: convocation.salle,
+            place: convocation.numeroPlace,
+            hash,
+        });
+        const qrImageBuffer = await QRCode.toBuffer(qrPayload, {
+            errorCorrectionLevel: 'M',
+            margin: 1,
+            type: 'png',
+            width: 180,
+        });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Convocation_${candidat.numeroMatricule || candidat._id}.pdf"`);
+
+        const doc = new PDFDocument({ margin: 50 });
+        doc.pipe(res);
+
+        doc.fontSize(10).text('RÉPUBLIQUE DE MADAGASCAR', { align: 'center' });
+        doc.text('Ministère de l\'Éducation Nationale', { align: 'center' });
+        doc.moveDown(2);
+
+        doc.fontSize(18).font('Helvetica-Bold').text('CONVOCATION À L\'EXAMEN', { align: 'center' });
+        doc.moveDown(1);
+
+        const fullName = `${(candidat.user as any)?.prenom || ''} ${(candidat.user as any)?.nom || ''}`.trim();
+        doc.fontSize(12).font('Helvetica');
+        doc.text(`Nom : ${fullName}`);
+        doc.text(`Matricule : ${candidat.numeroMatricule || 'N/A'}`);
+        doc.text(`Examen : ${candidat.examen}`);
+        doc.text(`Série : ${candidat.serieFiliere}`);
+        doc.moveDown(1);
+
+        doc.text(`Date : ${convocation.dateEpreuve.toISOString().slice(0, 10)}`);
+        doc.text(`Heure : ${convocation.heureDebut} - ${convocation.heureFin}`);
+        doc.text(`Centre : ${centre?.nom || 'N/A'} - ${centre?.ville || 'N/A'}`);
+        doc.text(`Adresse : ${centre?.adresse || 'N/A'}`);
+        doc.text(`Salle / Place : ${convocation.salle} / ${convocation.numeroPlace}`);
+        doc.moveDown(1);
+
+        doc.font('Helvetica-Bold').text('Instructions importantes :', { underline: true });
+        doc.font('Helvetica').list([
+            'Se présenter 30 minutes avant le début de l\'épreuve.',
+            'Avoir sur soi la convocation imprimée et une pièce d\'identité officielle.',
+            'Interdit de communiquer ou d\'utiliser un appareil électronique pendant l\'épreuve.',
+            'Respecter les consignes du surveillant et le placement indiqué sur la convocation.',
+        ]);
+        doc.moveDown(2);
+
+        doc.font('Helvetica-Bold').text('QR code de validation :', { underline: true });
+        const qrX = doc.x;
+        const qrY = doc.y + 8;
+        doc.image(qrImageBuffer, qrX, qrY, { width: 140, height: 140 });
+        doc.font('Helvetica').fontSize(9).text('Scanner ce code pour valider la convocation et enregistrer la présence.', qrX + 160, qrY + 20, {
+            width: 280,
+        });
+        doc.fontSize(7).text(`Payload : ${qrPayload}`, qrX + 160, qrY + 65, {
+            width: 280,
+        });
+        doc.y = qrY + 155;
+        doc.moveDown(1);
+        doc.font('Helvetica-Oblique').fontSize(10).text('Ce QR contient un hash de vérification qui garantit l\'authenticité de cette convocation.', { align: 'left' });
+
+        doc.end();
+    } catch (error: any) {
         if (!res.headersSent) {
             res.status(500).json({ message: error.message });
         }

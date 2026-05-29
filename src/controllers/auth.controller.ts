@@ -16,6 +16,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     try {
         const { nom, prenom, email, motDePasse, role, telephone } = req.body;
 
+        // Valider le rôle
+        const rolesValides = ['ADMIN', 'RESPONSABLE', 'SURVEILLANT', 'CORRECTEUR', 'CANDIDAT'];
+        if (role && !rolesValides.includes(role)) {
+            res.status(400).json({ message: 'Rôle invalide. Rôles autorisés: ' + rolesValides.join(', ') });
+            return;
+        }
+
         // Vérifier si l'utilisateur existe déjà
         const userExists = await User.findOne({ email });
         if (userExists) {
@@ -24,7 +31,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         }
 
         // Création de l'utilisateur
-        const user = await User.create({ nom, prenom, email, motDePasse, role, telephone });
+        const user = await User.create({ nom, prenom, email, motDePasse, role: role || 'CANDIDAT', telephone });
 
         res.status(201).json({
             _id: user._id,
