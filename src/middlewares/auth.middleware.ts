@@ -11,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 interface JwtPayload {
-    id: string;
+    userId: string;
     role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CANDIDAT';
 }
 
@@ -25,17 +25,24 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
             // On extrait le token
             token = req.headers.authorization.split(' ')[1];
 
+            console.log('protect - token:', token);
+
             // On décode et vérifie le token avec notre clé secrète
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
 
+            console.log('protect - decoded:', decoded);
+
             // On injecte les infos de l'utilisateur dans la requête pour les middlewares suivants
             req.user = {
-                id: decoded.id,
+                id: decoded.userId,
                 role: decoded.role
             };
 
+            console.log('protect - req.user:', req.user);
+
             return next();
         } catch (error) {
+            console.error('protect - error:', error);
             res.status(401).json({ message: 'Session expirée ou token invalide. Authentification refusée.' });
             return;
         }

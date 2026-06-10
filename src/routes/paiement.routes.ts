@@ -1,10 +1,22 @@
 import { Router } from 'express';
-import { webhookMobileMoney } from '../controllers/paiement.controller';
+import { protect } from '../middlewares/auth.middleware';
+import {
+    webhookMobileMoney,
+    initiatePaiement,
+    checkPaiementStatus,
+    getPaiementHistory,
+    retryPaiement
+} from '../controllers/paiement.controller';
 
 const router = Router();
 
 // Route de callback appelée par l'API Mobile Money (MVola, Orange, etc.)
-// Ex: POST https://votre-domaine.com/api/v1/paiements/webhook
 router.post('/webhook', webhookMobileMoney);
+
+// Routes protégées pour les paiements
+router.post('/initier', protect, initiatePaiement);
+router.get('/:transactionId/status', protect, checkPaiementStatus);
+router.get('/history', protect, getPaiementHistory);
+router.post('/:candidatId/retry', protect, retryPaiement);
 
 export default router;

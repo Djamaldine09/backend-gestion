@@ -14,7 +14,7 @@ export interface IResultat extends Document {
     notes: INote[];
     moyenneGenerale: number;
     statutFinal: 'EN_ATTENTE' | 'ADMIS' | 'REFUSE' | 'REPECHAGE';
-    estPublie: { type: Boolean, default: false }
+    estPublie: boolean
 }
 
 const NoteSchema = new Schema<INote>({
@@ -29,7 +29,8 @@ const ResultatSchema: Schema = new Schema({
     examen: { type: String, required: true },
     notes: [NoteSchema],
     moyenneGenerale: { type: Number, default: 0 },
-    statutFinal: { type: String, enum: ['EN_ATTENTE', 'ADMIS', 'REFUSE', 'REPECHAGE'], default: 'EN_ATTENTE' }
+    statutFinal: { type: String, enum: ['EN_ATTENTE', 'ADMIS', 'REFUSE', 'REPECHAGE'], default: 'EN_ATTENTE' },
+    estPublie: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // ==========================================

@@ -9,25 +9,48 @@ import {
   getNationalReport,
   listCentres,
   listUsers,
+  listCandidats,
   updateCentre,
   updateUser,
+  getDetailedStats,
+  getReportByRegion,
+  getAuditLogs,
+  affectCandidatsToCentres,
+  getAffectations,
+  exportReport,
+  resetCandidatStatus,
+  validateCandidat
 } from '../controllers/admin.controller';
 
 const router = Router();
 
-router.use(protect, restrictTo('ADMIN'));
+// Routes requiring ADMIN only
+const adminRouter = Router();
+adminRouter.use(protect, restrictTo('ADMIN'));
+adminRouter.get('/dashboard', getNationalDashboard);
+adminRouter.get('/reports/national', getNationalReport);
+adminRouter.get('/reports/export', exportReport);
+adminRouter.get('/stats/detailed', getDetailedStats);
+adminRouter.get('/reports/region/:region', getReportByRegion);
+adminRouter.get('/audit', getAuditLogs);
+adminRouter.get('/users', listUsers);
+adminRouter.post('/users', createUser);
+adminRouter.put('/users/:id', updateUser);
+adminRouter.delete('/users/:id', deleteUser);
+adminRouter.post('/affectation', affectCandidatsToCentres);
+adminRouter.get('/affectations', getAffectations);
+adminRouter.post('/candidats/reset-status', resetCandidatStatus);
+adminRouter.put('/candidats/:candidatId/validate', validateCandidat);
 
-router.get('/dashboard', getNationalDashboard);
-router.get('/reports/national', getNationalReport);
-
-router.get('/users', listUsers);
-router.post('/users', createUser);
-router.put('/users/:id', updateUser);
-router.delete('/users/:id', deleteUser);
-
+// Routes accessible to both ADMIN and RESPONSABLE
+router.use(protect, restrictTo('ADMIN', 'RESPONSABLE'));
+router.get('/candidats', listCandidats);
 router.get('/centres', listCentres);
 router.post('/centres', createCentre);
 router.put('/centres/:id', updateCentre);
 router.delete('/centres/:id', deleteCentre);
+
+// Mount admin-only routes
+router.use('/', adminRouter);
 
 export default router;

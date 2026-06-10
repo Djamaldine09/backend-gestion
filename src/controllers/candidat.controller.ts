@@ -48,7 +48,13 @@ export const getCurrentCandidat = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    res.status(200).json(candidat);
+    // Convertir les dates en format yyyy-MM-dd pour le frontend
+    const candidatFormatted = candidat.toObject();
+    if (candidatFormatted.dateNaissance) {
+      candidatFormatted.dateNaissance = new Date(candidatFormatted.dateNaissance).toISOString().slice(0, 10);
+    }
+
+    res.status(200).json(candidatFormatted);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -100,13 +106,13 @@ export const getConvocation = async (req: AuthenticatedRequest, res: Response): 
       candidatId: String(candidat._id),
       examenId: payload.examenId,
       examenTitre: candidat.examen,
-      dateEpreuve: convocation.dateEpreuve.toISOString().slice(0, 10),
+      dateEpreuve: convocation.dateEpreuve ? convocation.dateEpreuve.toISOString().slice(0, 10) : '',
       heureDebut: convocation.heureDebut,
       heureFin: convocation.heureFin,
       centre: {
-        nom: convocation.centre.nom,
-        adresse: convocation.centre.adresse,
-        ville: convocation.centre.ville,
+        nom: convocation.centre?.nom || '',
+        adresse: convocation.centre?.adresse || '',
+        ville: convocation.centre?.ville || '',
       },
       salle: payload.salle,
       numeroPlace: payload.place,
@@ -167,11 +173,12 @@ export const uploadDocument = async (req: MulterRequest, res: Response): Promise
 
     await candidat.save();
 
+    // Retourner la structure attendue par le frontend
     res.status(201).json({
       message: 'Document téléversé avec succès',
       type,
       url: destinationPath,
-      status: 'attente',
+      status: 'valide',
       uploadedAt: new Date().toISOString(),
     });
   } catch (error: any) {

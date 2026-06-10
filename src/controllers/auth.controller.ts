@@ -5,7 +5,8 @@ import admin from 'firebase-admin';
 import serviceAccount from '../../examgest-a96f9-firebase-adminsdk-fbsvc-7f7dcbab2e.json';
 
 // Fonction utilitaire pour générer le Token
-const generateToken = (id: string, role: string) => {
+export const generateToken = (id: string, role: string) => {
+    console.log('generateToken - id:', id, 'role:', role);
     return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
         expiresIn: '30d',
     });

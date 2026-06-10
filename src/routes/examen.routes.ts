@@ -1,26 +1,34 @@
-import { Router, Response } from 'express';
-import { protect, restrictTo, AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { Router } from 'express';
+import { protect, restrictTo } from '../middlewares/auth.middleware';
+import {
+    listExamens,
+    getExamenById,
+    createExamen,
+    updateExamen,
+    deleteExamen,
+    addEpreuves,
+    getEpreuves,
+    affectCandidats
+} from '../controllers/examen.controller';
 
 const router = Router();
 
 // Route publique : Tout le monde peut voir la liste des examens
-router.get('/', (req, res) => {
-    res.json({ message: "Liste de tous les examens nationaux" });
-});
+router.get('/', listExamens);
 
-// Route protégée : Il faut être connecté ET avoir le rôle ADMIN ou RESPONSABLE
-router.post(
-    '/creer', 
-    protect, // Étape 1 : Es-tu connecté ?
-    restrictTo('ADMIN', 'RESPONSABLE'), // Étape 2 : As-tu le bon rôle ?
-    (req: AuthenticatedRequest, res: Response) => {
-        // Si le code arrive ici, l'utilisateur est authentifié et autorisé.
-        // Tu as accès à son ID via req.user.id si besoin.
-        res.status(201).json({ 
-            message: "Examen créé avec succès !",
-            creePar: req.user?.id 
-        });
-    }
-);
+// Route protégée : Il faut être connecté ET avoir le rôle ADMIN
+router.post('/creer', protect, restrictTo('ADMIN'), createExamen);
+
+// Routes CRUD complètes
+router.get('/:id', protect, getExamenById);
+router.put('/:id', protect, restrictTo('ADMIN'), updateExamen);
+router.delete('/:id', protect, restrictTo('ADMIN'), deleteExamen);
+
+// Gestion des épreuves
+router.post('/:id/epreuves', protect, restrictTo('ADMIN'), addEpreuves);
+router.get('/:id/epreuves', protect, getEpreuves);
+
+// Affectation des candidats
+router.post('/:id/affecter', protect, restrictTo('ADMIN'), affectCandidats);
 
 export default router;

@@ -217,3 +217,104 @@ export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: 
         }
     }
 };
+
+export const downloadJustificatif = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const { type } = req.params;
+        const userId = req.user?.id;
+
+        const candidat = await Candidat.findOne({ user: userId });
+        if (!candidat) {
+            res.status(404).json({ message: 'Candidat introuvable' });
+            return;
+        }
+
+        const filePath = candidat.piecesJustificatives[type as keyof typeof candidat.piecesJustificatives];
+        if (!filePath) {
+            res.status(404).json({ message: 'Document non trouvé' });
+            return;
+        }
+
+        res.download(filePath);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const checkPiecesStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+
+        const candidat = await Candidat.findOne({ user: userId });
+        if (!candidat) {
+            res.status(404).json({ message: 'Candidat introuvable' });
+            return;
+        }
+
+        const status = {
+            photoIdentite: candidat.piecesJustificatives.photoIdentite ? 'valide' : 'manquant',
+            acteNaissance: candidat.piecesJustificatives.acteNaissance ? 'valide' : 'manquant',
+            diplomePrecedent: candidat.piecesJustificatives.diplomePrecedent ? 'valide' : 'manquant',
+        };
+
+        res.status(200).json(status);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const generateBulletinVersement = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+
+        const candidat = await Candidat.findOne({ user: userId }).populate({
+            path: 'user',
+            select: 'nom prenom'
+        });
+
+        if (!candidat) {
+            res.status(404).json({ message: 'Candidat introuvable' });
+            return;
+        }
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Bulletin_Versement_${candidat.numeroMatricule}.pdf"`);
+
+        const doc = new PDFDocument({ margin: 50 });
+        doc.pipe(res);
+
+        doc.fontSize(10).text('RÉPUBLIQUE DE MADAGASCAR', { align: 'center' });
+        doc.text('Ministère de l\'Éducation Nationale', { align: 'center' });
+        doc.moveDown(2);
+
+        doc.fontSize(16).font('Helvetica-Bold').text('BULLETIN DE VERSEMENT', { align: 'center' });
+        doc.moveDown(2);
+
+        const nomComplet = `${(candidat.user as any)?.nom} ${(candidat.user as any)?.prenom}`;
+        doc.fontSize(12).font('Helvetica');
+        doc.text(`Nom et Prénoms : ${nomComplet.toUpperCase()}`);
+        doc.text(`Numéro Matricule : ${candidat.numeroMatricule}`);
+        doc.text(`Examen : ${candidat.examen}`);
+        doc.moveDown(2);
+
+        doc.font('Helvetica-Bold').text('Détails du versement :');
+        doc.font('Helvetica').text(`Montant : ${candidat.paiement.montant || 0} Ar`);
+        doc.text(`Mode de paiement : ${candidat.paiement.modePaiement || 'Non spécifié'}`);
+        doc.text(`Statut : ${candidat.paiement.statut}`);
+        if (candidat.paiement.datePaiement) {
+            doc.text(`Date de paiement : ${candidat.paiement.datePaiement.toISOString().slice(0, 10)}`);
+        }
+        if (candidat.paiement.referenceTransaction) {
+            doc.text(`Référence : ${candidat.paiement.referenceTransaction}`);
+        }
+
+        doc.moveDown(3);
+        doc.fontSize(10).font('Helvetica-Oblique').text('Document généré électroniquement.', { align: 'right' });
+
+        doc.end();
+    } catch (error: any) {
+        if (!res.headersSent) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+};

@@ -19,6 +19,12 @@ import adminRoutes from './routes/admin.routes';
 import paiementRoutes from './routes/paiement.routes';
 import resultatRoutes from './routes/resultat.routes';
 import examenRoutes from './routes/examen.routes';
+import convocationRoutes from './routes/convocation.routes';
+import smsRoutes from './routes/sms.routes';
+import affectationRoutes from './routes/affectation.routes';
+import notificationRoutes from './routes/notification.routes';
+import inscriptionRoutes from './routes/inscription.routes';
+import statisticsRoutes from './routes/statistics.routes';
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -29,19 +35,16 @@ const appLog = createLog('App');
 // Connexion à la base de données
 connectDB();
 
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+
 
 // ==========================================
 // MIDDLEWARES DE SÉCURITÉ & CONFIGURATION
 // ==========================================
 app.use(helmet()); // Sécurité des en-têtes HTTP
 app.use(cors({
-    origin: allowedOrigins,
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'cache-control', 'pragma']
 }));
 
 // Logging HTTP avec Morgan
@@ -82,6 +85,12 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/paiement', paiementRoutes);
 app.use('/api/resultats', resultatRoutes);
 app.use('/api/examens', examenRoutes);
+app.use('/api/convocation', convocationRoutes);
+app.use('/api/auth/sms', smsRoutes);
+app.use('/api/affectation', affectationRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/inscription', inscriptionRoutes);
 
 // ==========================================
 // ROUTE DE SANTÉ (HEALTH CHECK)
