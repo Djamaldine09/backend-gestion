@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Candidat from '../models/Candidat';
 import Paiement from '../models/Paiement';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import StripeService from '../services/stripe.service';
 
 export const webhookMobileMoney = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -63,14 +64,57 @@ export const webhookMobileMoney = async (req: Request, res: Response): Promise<v
 export const initiatePaiement = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const { montant, modePaiement, numeroTelephone, carteToken } = req.body;
-        
-        const candidat = await Candidat.findOne({ user: req.user!.id });
+
+        const candidat = await Candidat.findOne({ user: req.user!.id }).populate('user');
         if (!candidat) {
             res.status(404).json({ message: 'Candidat introuvable' });
             return;
         }
 
-        // Créer un enregistrement de paiement
+        // Gestion des paiements Stripe (Carte bancaire)
+        if (modePaiement === 'CARTE_BANCAIRE' || modePaiement === 'STRIPE') {
+            const amountInCents = montant; // MGA n'a pas de centimes, on utilise le montant direct
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+            const candidatNom = (candidat as any).user ? `${(candidat as any).user.prenom || ''} ${(candidat as any).user.nom || ''}`.trim() : '';
+
+            const sessionResult = await StripeService.createCheckoutSession({
+                amount: amountInCents,
+                currency: 'mga',
+                candidatId: candidat._id.toString(),
+                candidatNom: candidatNom || 'Candidat',
+                description: 'Frais d\'examen',
+                successUrl: `${frontendUrl}/paiements?success=true&session_id={CHECKOUT_SESSION_ID}`,
+                cancelUrl: `${frontendUrl}/paiements?cancelled=true`,
+                customerEmail: (req.user as any)?.email
+            });
+
+            // Créer un enregistrement de paiement
+            const paiement = await Paiement.create({
+                candidat: candidat._id,
+                montant,
+                modePaiement: 'CARTE_BANCAIRE',
+                statut: 'EN_ATTENTE',
+                referenceTransaction: sessionResult.sessionId,
+                stripeCheckoutSessionId: sessionResult.sessionId
+            });
+
+            candidat.paiement.statut = 'EN_COURS';
+            candidat.paiement.modePaiement = 'CARTE_BANCAIRE';
+            candidat.paiement.montant = montant;
+            await candidat.save();
+
+            res.status(201).json({
+                message: 'Session de paiement créée',
+                sessionId: sessionResult.sessionId,
+                url: sessionResult.url, // URL pour redirection vers Stripe
+                paiementId: paiement._id,
+                montant
+            });
+            return;
+        }
+
+        // Gestion des paiements Mobile Money (MVola, Orange, Airtel)
         const paiement = await Paiement.create({
             candidat: candidat._id,
             montant,
@@ -81,14 +125,11 @@ export const initiatePaiement = async (req: AuthenticatedRequest, res: Response)
             referenceTransaction: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         });
 
-        // Mettre à jour le statut de paiement du candidat
         candidat.paiement.statut = 'EN_COURS';
         candidat.paiement.modePaiement = modePaiement;
         candidat.paiement.montant = montant;
         await candidat.save();
 
-        // Simulation de l'appel à l'API de paiement (MVola, Orange, etc.)
-        // Dans un environnement réel, vous feriez un appel HTTP à l'API du provider
         res.status(201).json({
             message: 'Paiement initié avec succès',
             paiementId: paiement._id,

@@ -25,6 +25,7 @@ import affectationRoutes from './routes/affectation.routes';
 import notificationRoutes from './routes/notification.routes';
 import inscriptionRoutes from './routes/inscription.routes';
 import statisticsRoutes from './routes/statistics.routes';
+import stripeRoutes from './routes/stripe.routes';
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -83,6 +84,7 @@ app.use('/api/candidats', candidatRoutes);
 app.use('/api/presence', presenceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/paiement', paiementRoutes);
+app.use('/api/stripe', stripeRoutes);
 app.use('/api/resultats', resultatRoutes);
 app.use('/api/examens', examenRoutes);
 app.use('/api/convocation', convocationRoutes);

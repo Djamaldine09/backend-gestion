@@ -18,9 +18,9 @@ export interface ICandidat extends Document {
     statutInscription: 'BROUILLON' | 'EN_ATTENTE_VALIDATION' | 'VALIDE' | 'REJETE';
     
     paiement: {
-        statut: 'NON_PAYE' | 'EN_COURS' | 'PAYE' | 'ECHEC';
+        statut: 'NON_PAYE' | 'EN_COURS' | 'PAYE' | 'ECHEC' | 'REMBOURSEMENT';
         referenceTransaction?: string;
-        modePaiement?: 'MVOLA' | 'ORANGE_MONEY' | 'AIRTEL_MONEY' | 'CARTE_BANCAIRE';
+        modePaiement?: 'MVOLA' | 'ORANGE_MONEY' | 'AIRTEL_MONEY' | 'CARTE_BANCAIRE' | 'STRIPE';
         datePaiement?: Date;
         montant?: number;
     };
@@ -89,9 +89,9 @@ const CandidatSchema: Schema = new Schema({
     },
     
     paiement: {
-        statut: { type: String, enum: ['NON_PAYE', 'EN_COURS', 'PAYE', 'ECHEC'], default: 'NON_PAYE' },
+        statut: { type: String, enum: ['NON_PAYE', 'EN_COURS', 'PAYE', 'ECHEC', 'REMBOURSEMENT'], default: 'NON_PAYE' },
         referenceTransaction: { type: String },
-        modePaiement: { type: String, enum: ['MVOLA', 'ORANGE_MONEY', 'AIRTEL_MONEY', 'CARTE_BANCAIRE'] },
+        modePaiement: { type: String, enum: ['MVOLA', 'ORANGE_MONEY', 'AIRTEL_MONEY', 'CARTE_BANCAIRE', 'STRIPE'] },
         datePaiement: { type: Date },
         montant: { type: Number }
     },
