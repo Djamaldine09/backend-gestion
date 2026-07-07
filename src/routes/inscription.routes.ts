@@ -52,6 +52,8 @@ const inscriptionLog = createLog('Inscription');
  *                 type: string
  *               emailParent:
  *                 type: string
+ *               region:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Candidat inscrit avec succès
@@ -131,6 +133,8 @@ router.post('/create', protect, async (req: Request, res: Response) => {
  *               adresse:
  *                 type: string
  *               emailParent:
+ *                 type: string
+ *               region:
  *                 type: string
  *     responses:
  *       200:

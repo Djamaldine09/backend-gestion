@@ -5,6 +5,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Candidat, { ICandidat } from '../models/Candidat';
 import User from '../models/User';
+import CentreExamen from '../models/CentreExamen';
+import { buildCentreAffectePayload, ensureCandidateCentreAffecte } from '../utils/centreAffecte';
 
 type MulterRequest = AuthenticatedRequest & {
   file?: Express.Multer.File;
@@ -19,7 +21,12 @@ function createQrHash(payload: string): string {
 }
 
 async function findCandidate(userId: string) {
-  return Candidat.findOne({ user: userId }).populate({ path: 'user', select: 'nom prenom email role' });
+  return Candidat.findOne({ user: userId })
+    .populate({ path: 'user', select: 'nom prenom email role' })
+    .populate({
+      path: 'centreExamen',
+      select: 'nom adresse ville region salle numeroPlace latitude longitude telephone email coords',
+    });
 }
 
 function buildConvocationPayload(candidat: ICandidat) {
@@ -48,13 +55,70 @@ export const getCurrentCandidat = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    // Convertir les dates en format yyyy-MM-dd pour le frontend
     const candidatFormatted = candidat.toObject();
     if (candidatFormatted.dateNaissance) {
       candidatFormatted.dateNaissance = new Date(candidatFormatted.dateNaissance).toISOString().slice(0, 10);
     }
 
-    res.status(200).json(candidatFormatted);
+    const centreSource = candidatFormatted.centreAffecte || {};
+    const centreRelation = candidatFormatted.centreExamen || {};
+    const mergedCentre = {
+      ...centreRelation,
+      ...centreSource,
+      nom: centreSource.nom || centreRelation.nom,
+      adresse: centreSource.adresse || centreRelation.adresse,
+      ville: centreSource.ville || centreRelation.ville,
+      region: centreSource.region || centreRelation.region,
+      salle: centreSource.salle || centreRelation.salle,
+      numeroPlace: centreSource.numeroPlace || centreRelation.numeroPlace,
+      telephone: centreSource.telephone || centreRelation.telephone,
+      email: centreSource.email || centreRelation.email,
+      coords: centreSource.coords ?? centreRelation.coords,
+      latitude: centreSource.latitude ?? centreRelation.latitude,
+      longitude: centreSource.longitude ?? centreRelation.longitude,
+    };
+
+    const hasCentreData = Boolean(
+      mergedCentre.nom ||
+      mergedCentre.adresse ||
+      mergedCentre.ville ||
+      mergedCentre.region ||
+      mergedCentre.salle ||
+      mergedCentre.numeroPlace ||
+      mergedCentre.telephone ||
+      mergedCentre.email ||
+      (mergedCentre.coords?.lat !== undefined && mergedCentre.coords?.lng !== undefined) ||
+      (mergedCentre.latitude !== undefined && mergedCentre.longitude !== undefined)
+    );
+
+    const centreAffecte = hasCentreData
+      ? buildCentreAffectePayload(
+          centreRelation as any,
+          {
+            ...mergedCentre,
+            coords: mergedCentre.coords ?? (mergedCentre.latitude !== undefined || mergedCentre.longitude !== undefined
+              ? { lat: mergedCentre.latitude, lng: mergedCentre.longitude }
+              : undefined),
+          }
+        )
+      : undefined;
+
+    if (centreAffecte && (!centreAffecte.coords || (centreAffecte.coords.lat === undefined && centreAffecte.coords.lng === undefined))) {
+      const ensured = await ensureCandidateCentreAffecte(candidatFormatted, centreRelation as any);
+      if (ensured) {
+        candidatFormatted.centreAffecte = ensured;
+      }
+    } else if (centreAffecte && centreAffecte.coords) {
+      await Candidat.findByIdAndUpdate(candidat._id, { centreAffecte: { ...centreSource, ...centreAffecte, coords: centreAffecte.coords } });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...candidatFormatted,
+        centreAffecte,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -80,7 +144,7 @@ export const updateCurrentCandidat = async (req: AuthenticatedRequest, res: Resp
       context: 'query',
     }).populate({ path: 'user', select: 'nom prenom email role' });
 
-    res.status(200).json(updated);
+    res.status(200).json({ success: true, data: updated });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -119,6 +183,7 @@ export const getConvocation = async (req: AuthenticatedRequest, res: Response): 
       matricule: candidat.numeroMatricule || 'N/A',
       prenom: (candidat.user as any)?.prenom || '',
       nom: (candidat.user as any)?.nom || '',
+      planning: candidat.planning || [],
     };
 
     if (payload.hash && convocation.hash !== payload.hash) {
@@ -126,7 +191,7 @@ export const getConvocation = async (req: AuthenticatedRequest, res: Response): 
       await candidat.save();
     }
 
-    res.status(200).json(responseData);
+    res.status(200).json({ success: true, data: responseData });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -140,7 +205,7 @@ export const getPlanning = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    res.status(200).json(candidat.planning || []);
+    res.status(200).json({ success: true, data: candidat.planning || [] });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -160,7 +225,7 @@ export const uploadDocument = async (req: MulterRequest, res: Response): Promise
     }
 
     const { type } = req.body;
-    if (!['photoIdentite', 'acteNaissance', 'diplomePrecedent'].includes(type)) {
+    if (!['photoIdentite', 'acteNaissance', 'diplomePrecedent', 'photoSupp'].includes(type)) {
       res.status(400).json({ message: 'Type de document invalide' });
       return;
     }
@@ -175,11 +240,14 @@ export const uploadDocument = async (req: MulterRequest, res: Response): Promise
 
     // Retourner la structure attendue par le frontend
     res.status(201).json({
-      message: 'Document téléversé avec succès',
-      type,
-      url: destinationPath,
-      status: 'valide',
-      uploadedAt: new Date().toISOString(),
+      success: true,
+      data: {
+        message: 'Document téléversé avec succès',
+        type,
+        url: destinationPath,
+        status: 'valide',
+        uploadedAt: new Date().toISOString(),
+      },
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

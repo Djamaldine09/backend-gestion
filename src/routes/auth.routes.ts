@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
-import { register, login, loginWithPhone } from '../controllers/auth.controller';
+import { register, login, loginWithPhone, forgotPassword, resetPassword } from '../controllers/auth.controller';
 import { 
     validateRequest, 
     registerSchema, 
@@ -114,6 +114,57 @@ router.post('/login', validateRequest(loginSchema), login);
  *         description: Numéro invalide
  */
 router.post('/phone', validateRequest(loginPhoneSchema), loginWithPhone);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Demande de réinitialisation de mot de passe
+ *     tags:
+ *       - Authentification
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email de réinitialisation envoyé
+ *       404:
+ *         description: Email non trouvé
+ */
+router.post('/forgot-password', forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Réinitialisation du mot de passe avec token
+ *     tags:
+ *       - Authentification
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Mot de passe réinitialisé avec succès
+ *       400:
+ *         description: Token invalide ou expiré
+ */
+router.post('/reset-password', resetPassword);
 
 /**
  * @swagger

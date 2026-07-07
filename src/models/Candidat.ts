@@ -9,12 +9,14 @@ export interface ICandidat extends Document {
     examen: string;       // Ex: "Baccalauréat", "BEPC"
     serieFiliere: string;  // Ex: "Série S", "Série L", "Génie Logiciel"
     centreExamenSouhaite?: string;
+    centreExamen?: mongoose.Types.ObjectId;
     cin?: string;
     etablissementPrecedent?: string;
     mentionPrecedente?: string;
     adresse?: string;
     telephone?: string;
     emailParent?: string;
+    region?: string;       // Région du candidat (ex: "Analamanga")
     statutInscription: 'BROUILLON' | 'EN_ATTENTE_VALIDATION' | 'VALIDE' | 'REJETE';
     
     paiement: {
@@ -75,12 +77,14 @@ const CandidatSchema: Schema = new Schema({
     examen: { type: String, required: true },
     serieFiliere: { type: String, required: true },
     centreExamenSouhaite: { type: String },
+    centreExamen: { type: Schema.Types.ObjectId, ref: 'CentreExamen' },
     cin: { type: String },
     etablissementPrecedent: { type: String },
     mentionPrecedente: { type: String },
     adresse: { type: String },
     telephone: { type: String },
     emailParent: { type: String },
+    region: { type: String },
     
     statutInscription: { 
         type: String, 

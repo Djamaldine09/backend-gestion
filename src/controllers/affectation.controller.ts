@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Affectation from '../models/Affectation';
 import Candidat from '../models/Candidat';
 import CentreExamen from '../models/CentreExamen';
+import { buildCentreAffectePayload } from '../utils/centreAffecte';
 
 export const createAffectation = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -16,24 +17,36 @@ export const createAffectation = async (req: AuthenticatedRequest, res: Response
             return;
         }
 
-        // Créer l'affectation
-        const affectation = await Affectation.create({
+        // Créer l'affectation avec le type d'examen comme string
+        const affectationData: any = {
             candidat: candidatId,
             centre: centreId,
-            examen: candidat.examen,
-            salle,
-            numeroPlace
-        });
-
-        // Mettre à jour le candidat
-        candidat.centreAffecte = {
-            nom: centre.nom,
-            ville: centre.ville,
-            region: centre.region,
-            adresse: centre.code,
             salle,
             numeroPlace
         };
+        
+        // Stocker le type d'examen comme string (ex: "Baccalauréat")
+        if (candidat.examen) {
+            affectationData.examenType = candidat.examen;
+        }
+        
+        const affectation = await Affectation.create(affectationData);
+
+        // Mettre à jour le candidat
+        candidat.centreExamen = centre._id as any;
+        const centreCoords = centre.coords && (centre.coords.lat !== undefined || centre.coords.lng !== undefined)
+          ? { lat: Number(centre.coords.lat), lng: Number(centre.coords.lng) }
+          : (centre.latitude !== undefined || centre.longitude !== undefined)
+            ? { lat: Number(centre.latitude), lng: Number(centre.longitude) }
+            : undefined;
+
+        candidat.centreAffecte = buildCentreAffectePayload(centre, {
+            salle,
+            numeroPlace,
+            telephone: centre.telephone,
+            email: centre.email,
+            coords: centreCoords,
+        });
         await candidat.save();
 
         // Mettre à jour le centre
@@ -42,6 +55,7 @@ export const createAffectation = async (req: AuthenticatedRequest, res: Response
 
         res.status(201).json(affectation);
     } catch (error: any) {
+        console.error('Erreur création affectation:', error);
         res.status(500).json({ message: error.message });
     }
 };

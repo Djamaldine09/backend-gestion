@@ -3,11 +3,13 @@ import User from '../models/User';
 import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
 import serviceAccount from '../../examgest-a96f9-firebase-adminsdk-fbsvc-7f7dcbab2e.json';
+import crypto from 'crypto';
+import { sendPasswordResetEmail } from '../services/email.service';
 
 // Fonction utilitaire pour générer le Token
 export const generateToken = (id: string, role: string) => {
     console.log('generateToken - id:', id, 'role:', role);
-    return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
+    return jwt.sign({ userId: id, role }, process.env.JWT_SECRET as string, {
         expiresIn: '30d',
     });
 };
@@ -120,5 +122,65 @@ export const loginWithPhone = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         res.status(401).json({ message: "Erreur d'authentification Firebase", error: error.message });
+    }
+};
+
+// Forgot Password - Generate reset token
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            res.status(404).json({ message: 'Aucun utilisateur trouvé avec cet email' });
+            return;
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpiry = new Date(resetTokenExpiry);
+        await user.save();
+
+        // Send email with reset link
+        const emailSent = await sendPasswordResetEmail(email, resetToken);
+        
+        if (!emailSent) {
+            console.error('Erreur lors de l\'envoi de l\'email de réinitialisation');
+        }
+
+        res.status(200).json({ 
+            message: 'Email de réinitialisation envoyé avec succès'
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Reset Password - Verify token and update password
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token, newPassword } = req.body;
+
+        const user = await User.findOne({ 
+            resetPasswordToken: token,
+            resetPasswordExpiry: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            res.status(400).json({ message: 'Token invalide ou expiré' });
+            return;
+        }
+
+        user.motDePasse = newPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpiry = undefined;
+        await user.save();
+
+        res.status(200).json({ message: 'Mot de passe réinitialisé avec succès' });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
     }
 };

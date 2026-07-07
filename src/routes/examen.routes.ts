@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect, restrictTo } from '../middlewares/auth.middleware';
+import { validateRequest, addEpreuvesSchema } from '../config/validation';
 import {
     listExamens,
     getExamenById,
@@ -8,7 +9,8 @@ import {
     deleteExamen,
     addEpreuves,
     getEpreuves,
-    affectCandidats
+    affectCandidats,
+    publishConvocations
 } from '../controllers/examen.controller';
 
 const router = Router();
@@ -25,10 +27,13 @@ router.put('/:id', protect, restrictTo('ADMIN'), updateExamen);
 router.delete('/:id', protect, restrictTo('ADMIN'), deleteExamen);
 
 // Gestion des épreuves
-router.post('/:id/epreuves', protect, restrictTo('ADMIN'), addEpreuves);
+router.post('/:id/epreuves', protect, restrictTo('ADMIN'), validateRequest(addEpreuvesSchema), addEpreuves);
 router.get('/:id/epreuves', protect, getEpreuves);
 
 // Affectation des candidats
 router.post('/:id/affecter', protect, restrictTo('ADMIN'), affectCandidats);
+
+// Publier les convocations (ADMIN)
+router.post('/:id/publish-convocations', protect, restrictTo('ADMIN'), publishConvocations);
 
 export default router;

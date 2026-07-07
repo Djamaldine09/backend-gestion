@@ -182,7 +182,7 @@ export const deleteUser = async (req: AuthenticatedRequest, res: Response): Prom
 export const listCentres = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const centres = await CentreExamen.find().sort({ region: 1, ville: 1, nom: 1 });
-    res.status(200).json(centres);
+    res.status(200).json({ success: true, data: centres });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -190,16 +190,20 @@ export const listCentres = async (_req: AuthenticatedRequest, res: Response): Pr
 
 export const createCentre = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { nom, code, ville, region, capaciteMaximale, examensAcceptes } = req.body;
+    const { nom, code, ville, region, capaciteMaximale, examensAcceptes, adresse, coords } = req.body;
     const centre = await CentreExamen.create({
       nom,
       code,
       ville,
       region,
+      adresse,
       capaciteMaximale: toNumber(capaciteMaximale),
       examensAcceptes: Array.isArray(examensAcceptes) ? examensAcceptes : String(examensAcceptes || '').split(',').map((item) => item.trim()).filter(Boolean),
+      coords: coords && (coords.lat !== undefined || coords.lng !== undefined)
+        ? { lat: Number(coords.lat), lng: Number(coords.lng) }
+        : undefined,
     });
-    res.status(201).json(centre);
+    res.status(201).json({ success: true, data: centre });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -213,13 +217,19 @@ export const updateCentre = async (req: AuthenticatedRequest, res: Response): Pr
       updates.examensAcceptes = updates.examensAcceptes.split(',').map((item: string) => item.trim()).filter(Boolean);
     }
 
+    if (updates.coords && (updates.coords.lat !== undefined || updates.coords.lng !== undefined)) {
+      updates.coords = { lat: Number(updates.coords.lat), lng: Number(updates.coords.lng) };
+    } else if ('coords' in updates) {
+      updates.coords = undefined;
+    }
+
     const centre = await CentreExamen.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     if (!centre) {
       res.status(404).json({ message: 'Centre introuvable.' });
       return;
     }
 
-    res.status(200).json(centre);
+    res.status(200).json({ success: true, data: centre });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -344,13 +354,19 @@ export const affectCandidatsToCentres = async (req: AuthenticatedRequest, res: R
         if (!candidat) return null;
 
         // Update candidat centre
+        candidat.centreExamen = centre._id as any;
         candidat.centreAffecte = {
           nom: centre.nom,
           ville: centre.ville,
           region: centre.region,
-          adresse: centre.code,
+          adresse: centre.adresse || centre.code || '',
           salle,
           numeroPlace,
+          coords: centre.coords || (centre.latitude !== undefined || centre.longitude !== undefined
+            ? { lat: centre.latitude, lng: centre.longitude }
+            : undefined),
+          telephone: centre.telephone,
+          email: centre.email,
         };
         await candidat.save();
 

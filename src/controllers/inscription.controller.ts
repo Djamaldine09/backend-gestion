@@ -27,6 +27,7 @@ export const registerCandidat = async (req: Request, res: Response): Promise<voi
       mentionPrecedente,
       adresse,
       emailParent,
+      region,
     } = req.body;
 
     // Vérifier si l'utilisateur existe déjà
@@ -75,6 +76,7 @@ export const registerCandidat = async (req: Request, res: Response): Promise<voi
       adresse,
       telephone,
       emailParent,
+      region,
       statutInscription: 'BROUILLON',
       paiement: {
         statut: 'NON_PAYE',
@@ -137,6 +139,7 @@ export const updateCandidatProfile = async (req: Request, res: Response): Promis
       mentionPrecedente,
       adresse,
       emailParent,
+      region,
     } = req.body;
 
     // Trouver le candidat
@@ -155,6 +158,8 @@ export const updateCandidatProfile = async (req: Request, res: Response): Promis
         genre: genre || 'M',
         examen: examen || 'Baccalauréat',
         serieFiliere: serieFiliere || 'Générale',
+        adresse,
+        region,
         statutInscription: 'BROUILLON',
         paiement: { statut: 'NON_PAYE' },
         piecesJustificatives: {},
@@ -179,6 +184,7 @@ export const updateCandidatProfile = async (req: Request, res: Response): Promis
     if (etablissementPrecedent) candidat.etablissementPrecedent = etablissementPrecedent;
     if (mentionPrecedente) candidat.mentionPrecedente = mentionPrecedente;
     if (adresse) candidat.adresse = adresse;
+    if (region) candidat.region = region;
     if (emailParent) candidat.emailParent = emailParent;
 
     candidat.dateModification = new Date();
@@ -211,8 +217,8 @@ export const submitInscription = async (req: Request, res: Response): Promise<vo
     console.log('Statut actuel du candidat:', candidat.statutInscription);
 
     // Vérifier que tous les champs requis sont remplis
-    if (!candidat.dateNaissance || !candidat.lieuNaissance || !candidat.genre || !candidat.cin) {
-      res.status(400).json({ success: false, message: 'Veuillez remplir tous les champs obligatoires' });
+    if (!candidat.dateNaissance || !candidat.lieuNaissance || !candidat.genre || !candidat.cin || !candidat.region) {
+      res.status(400).json({ success: false, message: 'Veuillez remplir tous les champs obligatoires, y compris la région' });
       return;
     }
 

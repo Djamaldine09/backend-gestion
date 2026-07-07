@@ -1,9 +1,13 @@
+import * as dotenv from 'dotenv';
+
+// Chargement des variables d'environnement AVANT les imports
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
-import * as dotenv from 'dotenv';
 
 // Import des configurations
 import { connectDB } from './config/db';
@@ -22,13 +26,11 @@ import examenRoutes from './routes/examen.routes';
 import convocationRoutes from './routes/convocation.routes';
 import smsRoutes from './routes/sms.routes';
 import affectationRoutes from './routes/affectation.routes';
+import affectationAutoRoutes from './routes/affectation-auto.routes';
 import notificationRoutes from './routes/notification.routes';
 import inscriptionRoutes from './routes/inscription.routes';
 import statisticsRoutes from './routes/statistics.routes';
 import stripeRoutes from './routes/stripe.routes';
-
-// Chargement des variables d'environnement
-dotenv.config();
 
 const app: Application = express();
 const appLog = createLog('App');
@@ -90,6 +92,7 @@ app.use('/api/examens', examenRoutes);
 app.use('/api/convocation', convocationRoutes);
 app.use('/api/auth/sms', smsRoutes);
 app.use('/api/affectation', affectationRoutes);
+app.use('/api/affectation-auto', affectationAutoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/inscription', inscriptionRoutes);

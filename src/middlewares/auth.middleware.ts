@@ -28,13 +28,19 @@ export const protect = async (req: AuthenticatedRequest, res: Response, next: Ne
             console.log('protect - token:', token);
 
             // On décode et vérifie le token avec notre clé secrète
-            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload & { id?: string };
 
             console.log('protect - decoded:', decoded);
 
             // On injecte les infos de l'utilisateur dans la requête pour les middlewares suivants
+            const userId = decoded.userId || decoded.id;
+            if (!userId) {
+                res.status(401).json({ message: 'Token invalide : utilisateur introuvable.' });
+                return;
+            }
+
             req.user = {
-                id: decoded.userId,
+                id: userId,
                 role: decoded.role
             };
 

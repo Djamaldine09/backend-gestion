@@ -52,6 +52,7 @@ export const candidatRegistrationSchema = Joi.object({
     adresse: Joi.string().optional(),
     telephone: Joi.string().optional(),
     emailParent: Joi.string().email().optional(),
+    region: Joi.string().optional(),
 });
 
 export const candidatUpdateSchema = Joi.object({
@@ -66,6 +67,7 @@ export const candidatUpdateSchema = Joi.object({
     etablissementPrecedent: Joi.string().optional(),
     mentionPrecedente: Joi.string().optional(),
     adresse: Joi.string().optional(),
+    region: Joi.string().optional(),
     telephone: Joi.string().optional(),
     emailParent: Joi.string().email().optional(),
 }).min(1);
@@ -151,6 +153,24 @@ export const centreExamenSchema = Joi.object({
         lng: Joi.number().required(),
     }).optional(),
     capacite: Joi.number().positive().optional(),
+});
+
+export const epreuveSchema = Joi.object({
+    matiere: Joi.string().min(2).required(),
+    date: Joi.date().required(),
+    heureDebut: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required().messages({
+        'string.pattern.base': 'Heure de début doit être au format HH:mm',
+    }),
+    heureFin: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required().messages({
+        'string.pattern.base': 'Heure de fin doit être au format HH:mm',
+    }),
+    duree: Joi.number().positive().required(),
+    coefficient: Joi.number().positive().required(),
+    type: Joi.string().valid('EPREUVE', 'REVISION').required(),
+});
+
+export const addEpreuvesSchema = Joi.object({
+    epreuves: Joi.array().items(epreuveSchema).min(1).required(),
 });
 
 // ========================================

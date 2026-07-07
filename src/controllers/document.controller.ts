@@ -141,6 +141,8 @@ export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: 
         }
 
         const centre = convocation.centre;
+        
+        // --- GÉNÉRATION DU QR CODE ---
         const payloadSource = `${candidat._id}|${candidat.numeroMatricule || 'N/A'}|${convocation.examenId}|${convocation.salle}|${convocation.numeroPlace}`;
         const hash = createQrHash(payloadSource);
         const qrPayload = JSON.stringify({
@@ -156,59 +158,157 @@ export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: 
             errorCorrectionLevel: 'M',
             margin: 1,
             type: 'png',
-            width: 180,
+            width: 100, 
         });
 
+        // --- PRÉPARATION DU FICHIER PDF ---
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Convocation_${candidat.numeroMatricule || candidat._id}.pdf"`);
 
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ size: 'A4', margin: 40 });
         doc.pipe(res);
 
-        doc.fontSize(10).text('RÉPUBLIQUE DE MADAGASCAR', { align: 'center' });
-        doc.text('Ministère de l\'Éducation Nationale', { align: 'center' });
-        doc.moveDown(2);
+        // ==========================================
+        // 1. EN-TÊTE (Gauche et Droite)
+        // ==========================================
+        
+        // Droite : Logo (Remplace le texte République et Devise)
+        // Remplacez ce chemin par le chemin réel de l'image sur votre serveur
+        const logoPath = './assets/Gemini_Generated_Image_ckf03uckf03uckf0.png'; 
+        
+        try {
+            // Insertion de l'image : X=230, Y=30, largeur=150 (ajustez "width" pour redimensionner)
+            doc.image(logoPath, 230, 10, { width: 150 });
+        } catch (err) {
+            console.error("Impossible de charger le logo de l'en-tête:", err);
+            // En cas d'erreur (chemin introuvable), l'espace restera vide pour ne pas faire planter la génération
+        }
+        
+        // Gauche : Ministère
+        const ministereTexte = "MINISTERE DE L'EDUCATION NATIONALE";
+        doc.font('Helvetica-Bold').fontSize(10);
+        
+        // On positionne le texte du ministère pour qu'il soit bien aligné avec le logo
+        doc.text(ministereTexte, 40, 90, { width: 250, align: 'left' });
+        
+        // Ligne pointillée exactement sous le Ministère
+        const ministereWidth = doc.widthOfString(ministereTexte);
+        doc.moveTo(40, 104).lineTo(40 + ministereWidth, 104).dash(3, { space: 2 }).stroke();
+        
+        // Réinitialisation des lignes pour la suite du document
+        doc.undash();
 
-        doc.fontSize(18).font('Helvetica-Bold').text('CONVOCATION À L\'EXAMEN', { align: 'center' });
-        doc.moveDown(1);
+        // ==========================================
+        // 2. CENTRE ET TITRE
+        // ==========================================
+        
+        doc.moveDown(3);
+        doc.font('Helvetica-Bold').fontSize(11);
+        doc.text(`Centre d'écrit:  ${centre?.nom?.toUpperCase()}`, 40, 120);
 
-        const fullName = `${(candidat.user as any)?.prenom || ''} ${(candidat.user as any)?.nom || ''}`.trim();
-        doc.fontSize(12).font('Helvetica');
-        doc.text(`Nom : ${fullName}`);
-        doc.text(`Matricule : ${candidat.numeroMatricule || 'N/A'}`);
-        doc.text(`Examen : ${candidat.examen}`);
-        doc.text(`Série : ${candidat.serieFiliere}`);
-        doc.moveDown(1);
+        doc.font('Helvetica-Bold').fontSize(15);
+        doc.text("CONVOCATION A L'EPREUVE ECRITE", 0, 160, { align: 'center', underline: true });
 
-        doc.text(`Date : ${convocation.dateEpreuve.toISOString().slice(0, 10)}`);
-        doc.text(`Heure : ${convocation.heureDebut} - ${convocation.heureFin}`);
-        doc.text(`Centre : ${centre?.nom || 'N/A'} - ${centre?.ville || 'N/A'}`);
-        doc.text(`Adresse : ${centre?.adresse || 'N/A'}`);
-        doc.text(`Salle / Place : ${convocation.salle} / ${convocation.numeroPlace}`);
-        doc.moveDown(1);
+        // Numéro d'inscription (à droite)
+        doc.fontSize(11);
+        doc.text("N° d'Inscription:", 360, 195, { underline: true, continued: true });
+        doc.text(`   ${candidat.numeroMatricule || 'N/A'}`, { underline: false });
 
-        doc.font('Helvetica-Bold').text('Instructions importantes :', { underline: true });
-        doc.font('Helvetica').list([
-            'Se présenter 30 minutes avant le début de l\'épreuve.',
-            'Avoir sur soi la convocation imprimée et une pièce d\'identité officielle.',
-            'Interdit de communiquer ou d\'utiliser un appareil électronique pendant l\'épreuve.',
-            'Respecter les consignes du surveillant et le placement indiqué sur la convocation.',
-        ]);
-        doc.moveDown(2);
+        // ==========================================
+        // 3. INFORMATIONS DU CANDIDAT
+        // ==========================================
+        
+        const startY = 230;
+        const fullName = `${(candidat.user as any)?.nom || ''} ${(candidat.user as any)?.prenom || ''}`.trim().toUpperCase();
+        
+        doc.font('Helvetica').fontSize(11);
+        doc.text("Nom et Prénoms:   ", 40, startY, { continued: true }).font('Helvetica-Bold').text(fullName);
+        
+        doc.font('Helvetica');
+        doc.text("Série:   ", 40, startY + 20, { continued: true })
+           .font('Helvetica-Bold')
+           .text(`${candidat.serieFiliere}`);
+           
+        doc.font('Helvetica');
+        const etablissementPrecedent = candidat.etablissementPrecedent || '..........................................................';
+        doc.text("Établissement d'origine:   ", 40, startY + 40, { continued: true })
+           .font('Helvetica-Bold')
+           .text(etablissementPrecedent);
 
-        doc.font('Helvetica-Bold').text('QR code de validation :', { underline: true });
-        const qrX = doc.x;
-        const qrY = doc.y + 8;
-        doc.image(qrImageBuffer, qrX, qrY, { width: 140, height: 140 });
-        doc.font('Helvetica').fontSize(9).text('Scanner ce code pour valider la convocation et enregistrer la présence.', qrX + 160, qrY + 20, {
-            width: 280,
-        });
-        doc.fontSize(7).text(`Payload : ${qrPayload}`, qrX + 160, qrY + 65, {
-            width: 280,
-        });
-        doc.y = qrY + 155;
-        doc.moveDown(1);
-        doc.font('Helvetica-Oblique').fontSize(10).text('Ce QR contient un hash de vérification qui garantit l\'authenticité de cette convocation.', { align: 'left' });
+        doc.font('Helvetica');
+        doc.text("Ecole mère d'accueil:   ", 40, startY + 60, { continued: true })
+           .font('Helvetica-Bold')
+           .text(centre?.nom?.toUpperCase() || '..........................................................');
+
+        // ==========================================
+        // 4. CORPS DU TEXTE (Paragraphes)
+        // ==========================================
+        
+        const paraY = startY + 110;
+        const dateEpreuveStr = convocation.dateEpreuve ? convocation.dateEpreuve.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase() : '16 JUIN 2026';
+        const heureDebut = convocation.heureDebut || '08 heures';
+        const salle = convocation.salle || '33';
+        const centreNom = centre?.nom?.toUpperCase() || '..........................................................';
+
+        doc.font('Helvetica').fontSize(11);
+        doc.text("J'ai l'honneur de vous informer que vous êtes inscrit(e) sur la liste des candidats autorisés à subir les épreuves.", 40, paraY);
+
+        doc.text('Ces épreuves, pour l\'examen ', 40, paraY + 25, { continued: true });
+        doc.font('Helvetica-Bold').text(candidat.examen || 'N/A', { continued: true });
+        doc.font('Helvetica').text(', se dérouleront le ', { continued: true });
+        doc.font('Helvetica-Bold').text(dateEpreuveStr, { continued: true });
+        doc.font('Helvetica').text(' au ', { continued: true });
+        doc.font('Helvetica-Bold').text(`${centreNom} Salle N° ${salle}`, { continued: true });
+        doc.font('Helvetica').text(` à partir de ${heureDebut}.`);
+        doc.font('Helvetica').text("L'appel des candidats aura lieu à 07h30.", 40, paraY + 50);
+        doc.text("Vous devez vous munir de la présente convocation ainsi que d'une pièce d'identité nationale ou scolaire.", 40, paraY + 75);
+
+        // ==========================================
+        // 5. SIGNATURE ET TAMPON ROUGE
+        // ==========================================
+        
+        const footerY = paraY + 160;
+        
+        const today = new Date();
+        const dateStr = `${String(today.getDate()).padStart(2, '0')} ${today.toLocaleDateString('fr-FR', { month: 'long' }).toUpperCase()} ${today.getFullYear()}`;
+        
+        doc.font('Helvetica').fontSize(11).fillColor('black');
+        doc.text(`${centre?.ville?.toUpperCase() || 'ANTANANARIVO RENIVOHITRA'}, le `, 280, footerY, { continued: true });
+        
+        // Date en rouge
+        doc.fillColor('#B8251E').font('Helvetica-Bold').fontSize(14).text(`   ${dateStr}`);
+        
+        // Chef de centre
+        doc.fillColor('black').font('Helvetica').fontSize(11);
+        doc.text("Le Chef de Centre,", 410, footerY + 25);
+
+        const stampX = 350;
+        const stampY = footerY + 100;
+        
+        
+
+        
+
+        const tamponPath = './assets/Tampon-minister.png';
+        try {
+            doc.image(tamponPath, 340, footerY + 10, { width: 130, height: 130 });
+        } catch (err) {
+            console.error("Impossible de charger le tampon officiel :", err);
+            doc.fontSize(7).fillColor('#B8251E').font('Helvetica-Bold');
+            doc.text('TAMPON OFFICIEL', 340, footerY + 45, { width: 130, align: 'center' });
+        }
+
+        doc.fontSize(11).fillColor('#B8251E').font('Helvetica-Bold');
+        doc.text("RATSIMADITRA HajahariIala Olivia", 380, stampY + 40, { width: 200, align: 'left' });
+
+        // ==========================================
+        // 6. QR CODE DE SÉCURITÉ
+        // ==========================================
+        
+        doc.fillColor('black');
+        const qrY = footerY + 10;
+        doc.image(qrImageBuffer, 40, qrY, { width: 80, height: 80 });
+        doc.font('Helvetica-Oblique').fontSize(7).text('Scan de vérification', 40, qrY + 85, { width: 80, align: 'center' });
 
         doc.end();
     } catch (error: any) {

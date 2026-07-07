@@ -9,6 +9,8 @@ export interface IUser extends Document {
     motDePasse: string;
     role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     telephone?: string;
+    resetPasswordToken?: string;
+    resetPasswordExpiry?: Date;
     comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -22,7 +24,9 @@ const UserSchema: Schema = new Schema({
         enum: ['ADMIN', 'RESPONSABLE', 'SURVEILLANT', 'CORRECTEUR', 'CANDIDAT'], 
         default: 'CANDIDAT' 
     },
-    telephone: { type: String } // Utile pour les notifications SMS et le paiement mobile
+    telephone: { type: String }, // Utile pour les notifications SMS et le paiement mobile
+    resetPasswordToken: { type: String },
+    resetPasswordExpiry: { type: Date }
 }, { timestamps: true });
 
 // Hachage du mot de passe avant sauvegarde

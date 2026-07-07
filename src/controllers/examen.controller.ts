@@ -6,7 +6,18 @@ import Candidat from '../models/Candidat';
 export const listExamens = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const examens = await Examen.find().sort({ dateDebut: -1 });
-        res.status(200).json(examens);
+
+        // Pour chaque examen, calculer le nombre de candidats inscrits (statut VALIDE)
+        const examensWithCounts = await Promise.all(
+            examens.map(async (ex) => {
+                const count = await Candidat.countDocuments({ examen: ex.titre, statutInscription: 'VALIDE' });
+                const obj = (ex as any).toObject ? (ex as any).toObject() : { ...ex };
+                obj.nombreCandidats = count;
+                return obj;
+            })
+        );
+
+        res.status(200).json(examensWithCounts);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
@@ -138,6 +149,67 @@ export const affectCandidats = async (req: AuthenticatedRequest, res: Response):
         );
         
         res.status(200).json(examen);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Publier les convocations pour tous les candidats d'un examen (ADMIN only)
+export const publishConvocations = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const examen = await Examen.findById(req.params.id);
+        if (!examen) {
+            res.status(404).json({ message: 'Examen introuvable' });
+            return;
+        }
+
+        // Récupérer les candidats liés à cet examen et validés
+        const candidats = await Candidat.find({ examen: examen.titre, statutInscription: 'VALIDE' }).populate('user');
+
+        // Si aucun candidat, répondre sans erreur
+        if (!candidats || candidats.length === 0) {
+            res.status(200).json({ message: 'Aucun candidat validé pour cet examen', published: 0 });
+            return;
+        }
+
+        // Générer une convocation minimale par candidat
+        const promises = candidats.map(async (cand) => {
+            const centre = (cand as any).centreAffecte || {} as any;
+
+            (cand as any).convocation = {
+                examenId: String(examen._id),
+                dateEpreuve: examen.dateDebut,
+                heureDebut: '08:00',
+                heureFin: '12:00',
+                centre: {
+                    nom: centre.nom || 'Centre non défini',
+                    adresse: centre.adresse || '',
+                    ville: centre.ville || ''
+                },
+                salle: centre.salle || 'Générale',
+                numeroPlace: (centre && centre.numeroPlace) || 'N/A',
+            } as any;
+
+            (cand as any).planning = (examen.epreuves || []).map((ep) => ({
+                matiere: ep.matiere,
+                date: ep.date,
+                heureDebut: ep.heureDebut,
+                heureFin: ep.heureFin,
+                duree: ep.duree,
+                coefficient: ep.coefficient,
+                type: ep.type,
+            }));
+
+            return cand.save();
+        });
+
+        await Promise.all(promises);
+
+        // Mettre à jour le compteur sur l'examen
+        examen.nombreCandidats = candidats.length;
+        await examen.save();
+
+        res.status(200).json({ message: 'Convocations publiées', published: candidats.length });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

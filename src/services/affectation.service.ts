@@ -1,5 +1,6 @@
 import Candidat from '../models/Candidat';
 import CentreExamen from '../models/CentreExamen';
+import { buildCentreAffectePayload } from '../utils/centreAffecte';
 
 export const lancerAffectationAutomatique = async (): Promise<{ succes: number; echecs: number }> => {
     let candidatsAffectesCount = 0;
@@ -47,6 +48,20 @@ export const lancerAffectationAutomatique = async (): Promise<{ succes: number; 
 
                     // Enregistrer le centre final sur le dossier du candidat
                     candidat.centreExamenSouhaite = centreTrouve.nom; // On fige le centre d'examen validé
+                    candidat.centreExamen = centreTrouve._id as any;
+                    const centreCoords = centreTrouve.coords && (centreTrouve.coords.lat !== undefined || centreTrouve.coords.lng !== undefined)
+                        ? { lat: Number(centreTrouve.coords.lat), lng: Number(centreTrouve.coords.lng) }
+                        : (centreTrouve.latitude !== undefined || centreTrouve.longitude !== undefined)
+                            ? { lat: Number(centreTrouve.latitude), lng: Number(centreTrouve.longitude) }
+                            : undefined;
+
+                    candidat.centreAffecte = buildCentreAffectePayload(centreTrouve, {
+                        salle: 'AUTO',
+                        numeroPlace: 'AUTO',
+                        telephone: centreTrouve.telephone,
+                        email: centreTrouve.email,
+                        coords: centreCoords,
+                    });
                     await candidat.save();
 
                     return { success: true };
