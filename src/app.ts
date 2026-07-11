@@ -44,10 +44,17 @@ connectDB();
 // MIDDLEWARES DE SÉCURITÉ & CONFIGURATION
 // ==========================================
 app.use(helmet()); // Sécurité des en-têtes HTTP
+
+// Configuration CORS dynamique pour localhost en développement
+const corsOrigin = process.env.NODE_ENV === 'development' 
+    ? /^http:\/\/localhost:\d+$/ // Accepte tous les ports localhost
+    : ['http://localhost:3000']; // Production: liste blanche stricte
+
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'cache-control', 'pragma']
+    allowedHeaders: ['Content-Type', 'Authorization', 'cache-control', 'pragma'],
+    credentials: true
 }));
 
 // Logging HTTP avec Morgan

@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { registerCandidat, updateCandidatProfile, submitInscription } from '../controllers/inscription.controller';
+import { registerCandidat, updateCandidatProfile, submitInscription, uploadDocuments, uploadMiddleware } from '../controllers/inscription.controller';
 import { protect, restrictTo } from '../middlewares/auth.middleware';
 import { createLog } from '../config/logger';
 
@@ -175,6 +175,49 @@ router.put('/profile', protect, restrictTo('CANDIDAT'), async (req: Request, res
 router.post('/submit', protect, restrictTo('CANDIDAT'), async (req: Request, res: Response) => {
   inscriptionLog.info('Soumission inscription candidat', { userId: (req as any).user?.id });
   await submitInscription(req, res);
+});
+
+/**
+ * @swagger
+ * /api/inscription/documents:
+ *   post:
+ *     summary: Télécharger les pièces justificatives
+ *     tags:
+ *       - Inscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photoIdentite:
+ *                 type: string
+ *                 format: binary
+ *               acteNaissance:
+ *                 type: string
+ *                 format: binary
+ *               diplomePrecedent:
+ *                 type: string
+ *                 format: binary
+ *               photoSupp:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Documents téléchargés avec succès
+ *       401:
+ *         description: Non authentifié
+ *       404:
+ *         description: Candidat non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/documents', protect, restrictTo('CANDIDAT'), uploadMiddleware, async (req: Request, res: Response) => {
+  inscriptionLog.info('Téléchargement documents candidat', { userId: (req as any).user?.id });
+  await uploadDocuments(req, res);
 });
 
 export default router;

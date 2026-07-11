@@ -352,9 +352,10 @@ export const checkPiecesStatus = async (req: AuthenticatedRequest, res: Response
         }
 
         const status = {
-            photoIdentite: candidat.piecesJustificatives.photoIdentite ? 'valide' : 'manquant',
-            acteNaissance: candidat.piecesJustificatives.acteNaissance ? 'valide' : 'manquant',
-            diplomePrecedent: candidat.piecesJustificatives.diplomePrecedent ? 'valide' : 'manquant',
+            photoIdentite: candidat.piecesJustificatives.photoIdentite?.status === 'valide' ? 'valide' : 'manquant',
+            acteNaissance: candidat.piecesJustificatives.acteNaissance?.status === 'valide' ? 'valide' : 'manquant',
+            diplomePrecedent: candidat.piecesJustificatives.diplomePrecedent?.status === 'valide' ? 'valide' : 'manquant',
+            photoSupp: candidat.piecesJustificatives.photoSupp?.status === 'valide' ? 'valide' : 'manquant',
         };
 
         res.status(200).json(status);

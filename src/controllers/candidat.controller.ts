@@ -210,46 +210,88 @@ export const getPlanning = async (req: AuthenticatedRequest, res: Response): Pro
     res.status(500).json({ message: error.message });
   }
 };
-
-export const uploadDocument = async (req: MulterRequest, res: Response): Promise<void> => {
+/**
+ * Récupérer les documents (pièces justificatives) du candidat
+ */
+export const getDocuments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const candidat = await findCandidate(req.user!.id);
     if (!candidat) {
-      res.status(404).json({ message: 'Candidat introuvable' });
+      res.status(404).json({ success: false, message: 'Candidat introuvable' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: candidat.piecesJustificatives || {
+        photoIdentite: { status: 'manquant' },
+        acteNaissance: { status: 'manquant' },
+        diplomePrecedent: { status: 'manquant' },
+        photoSupp: { status: 'manquant' },
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+export const uploadDocument = async (req: MulterRequest, res: Response): Promise<void> => {
+  try {
+    console.log('🔍 uploadDocument START');
+    const candidat = await findCandidate(req.user!.id);
+    if (!candidat) {
+      console.log('❌ Candidat introuvable');
+      res.status(404).json({ success: false, message: 'Candidat introuvable' });
       return;
     }
 
     if (!req.file || !req.body.type) {
-      res.status(400).json({ message: 'Fichier ou type manquant' });
+      console.log('❌ Fichier ou type manquant');
+      res.status(400).json({ success: false, message: 'Fichier ou type manquant' });
       return;
     }
 
     const { type } = req.body;
     if (!['photoIdentite', 'acteNaissance', 'diplomePrecedent', 'photoSupp'].includes(type)) {
-      res.status(400).json({ message: 'Type de document invalide' });
+      console.log('❌ Type de document invalide:', type);
+      res.status(400).json({ success: false, message: 'Type de document invalide' });
       return;
     }
 
     const destinationPath = path.relative(path.join(__dirname, '..'), req.file.path).replace(/\\/g, '/');
-    candidat.piecesJustificatives = {
-      ...candidat.piecesJustificatives,
-      [type]: destinationPath,
-    } as any;
+    console.log(`  📁 Saving ${type} with path: ${destinationPath}`);
+    
+    // Assigner avec la structure correcte: { status, chemin }
+    if (!candidat.piecesJustificatives) {
+      candidat.piecesJustificatives = {
+        photoIdentite: { status: 'manquant' },
+        acteNaissance: { status: 'manquant' },
+        diplomePrecedent: { status: 'manquant' },
+        photoSupp: { status: 'manquant' },
+      };
+    }
+    
+    candidat.piecesJustificatives[type as keyof typeof candidat.piecesJustificatives] = {
+      status: 'valide',
+      chemin: destinationPath,
+    };
 
+    console.log('  💾 Saving candidat...');
     await candidat.save();
+    console.log('  ✅ Document saved');
 
-    // Retourner la structure attendue par le frontend
     res.status(201).json({
       success: true,
+      message: 'Document téléversé avec succès',
       data: {
-        message: 'Document téléversé avec succès',
         type,
-        url: destinationPath,
         status: 'valide',
+        chemin: destinationPath,
         uploadedAt: new Date().toISOString(),
       },
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Erreur uploadDocument:', error);
+    console.error('  Stack:', error.stack);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

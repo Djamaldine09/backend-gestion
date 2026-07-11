@@ -8,6 +8,7 @@ import {
   updateCurrentCandidat,
   getConvocation,
   getPlanning,
+  getDocuments,
   uploadDocument,
 } from '../controllers/candidat.controller';
 
@@ -147,6 +148,38 @@ router.get('/me/convocation', protect, restrictTo('CANDIDAT'), getConvocation);
  *                     type: string
  */
 router.get('/me/planning', protect, restrictTo('CANDIDAT'), getPlanning);
+
+/**
+ * @swagger
+ * /api/candidats/me/documents:
+ *   get:
+ *     summary: Récupérer les pièces justificatives du candidat
+ *     tags:
+ *       - Candidats
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des pièces justificatives
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     photoIdentite:
+ *                       type: object
+ *                       properties:
+ *                         status:
+ *                           type: string
+ *                         chemin:
+ *                           type: string
+ */
+router.get('/me/documents', protect, restrictTo('CANDIDAT'), getDocuments);
 
 /*
  * @swagger

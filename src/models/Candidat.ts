@@ -28,10 +28,22 @@ export interface ICandidat extends Document {
     };
     
     piecesJustificatives: {
-        photoIdentite?: string;
-        acteNaissance?: string;
-        diplomePrecedent?: string;
-        photoSupp?: string;
+        photoIdentite?: {
+            status?: 'valide' | 'invalide' | 'manquant';
+            chemin?: string;
+        };
+        acteNaissance?: {
+            status?: 'valide' | 'invalide' | 'manquant';
+            chemin?: string;
+        };
+        diplomePrecedent?: {
+            status?: 'valide' | 'invalide' | 'manquant';
+            chemin?: string;
+        };
+        photoSupp?: {
+            status?: 'valide' | 'invalide' | 'manquant';
+            chemin?: string;
+        };
     };
     
     centreAffecte?: {
@@ -101,10 +113,22 @@ const CandidatSchema: Schema = new Schema({
     },
     
     piecesJustificatives: {
-        photoIdentite: { type: String },
-        acteNaissance: { type: String },
-        diplomePrecedent: { type: String },
-        photoSupp: { type: String }
+        photoIdentite: {
+            status: { type: String, enum: ['valide', 'invalide', 'manquant'], default: 'manquant' },
+            chemin: { type: String }
+        },
+        acteNaissance: {
+            status: { type: String, enum: ['valide', 'invalide', 'manquant'], default: 'manquant' },
+            chemin: { type: String }
+        },
+        diplomePrecedent: {
+            status: { type: String, enum: ['valide', 'invalide', 'manquant'], default: 'manquant' },
+            chemin: { type: String }
+        },
+        photoSupp: {
+            status: { type: String, enum: ['valide', 'invalide', 'manquant'], default: 'manquant' },
+            chemin: { type: String }
+        }
     },
     
     centreAffecte: {
