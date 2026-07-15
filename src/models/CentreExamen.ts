@@ -9,6 +9,7 @@ export interface ICentreExamen extends Document {
     capaciteMaximale: number;
     examensAcceptes: string[]; // Ex: ["Baccalauréat", "BEPC"]
     candidatsAffectes: mongoose.Types.ObjectId[]; // Liste des IDs des candidats affectés
+    coords?: { lat?: number; lng?: number };
     latitude?: number;
     longitude?: number;
     telephone?: string;
@@ -26,6 +27,14 @@ const CentreExamenSchema: Schema = new Schema({
     capaciteMaximale: { type: Number, required: true },
     examensAcceptes: [{ type: String, required: true }], // Pour filtrer par type d'examen
     candidatsAffectes: [{ type: Schema.Types.ObjectId, ref: 'Candidat', default: [] }],
+    // Coordonnées GPS du centre : c'est ce champ que le panneau admin, la carte
+    // et l'algorithme d'affectation automatique lisent et écrivent (coords.lat / coords.lng).
+    // Il manquait dans le schéma, donc Mongoose l'ignorait silencieusement à la sauvegarde.
+    coords: {
+        lat: { type: Number },
+        lng: { type: Number }
+    },
+    // Champs legacy conservés pour compatibilité avec d'anciennes données/scripts.
     latitude: { type: Number },
     longitude: { type: Number },
     telephone: { type: String },

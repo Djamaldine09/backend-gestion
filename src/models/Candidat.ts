@@ -54,6 +54,8 @@ export interface ICandidat extends Document {
         salle?: string;
         numeroPlace?: string;
         coords?: { lat: number; lng: number };
+        telephone?: string;
+        email?: string;
     };
     
     convocation?: {
@@ -141,7 +143,9 @@ const CandidatSchema: Schema = new Schema({
         coords: {
             lat: { type: Number },
             lng: { type: Number }
-        }
+        },
+        telephone: { type: String },
+        email: { type: String }
     },
     
     convocation: {
