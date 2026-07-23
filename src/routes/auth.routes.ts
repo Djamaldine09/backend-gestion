@@ -10,6 +10,7 @@ import {
     googleAuthSchema 
 } from '../config/validation';
 import { createLog } from '../config/logger';
+import { AuthenticatedRequest, protect } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 const authLog = createLog('Auth');
@@ -165,6 +166,52 @@ router.post('/forgot-password', forgotPassword);
  *         description: Token invalide ou expiré
  */
 router.post('/reset-password', resetPassword);
+
+router.put('/me', protect, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { nom, prenom, email, telephone } = req.body;
+
+        if (!req.user?.id) {
+            return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+        }
+
+        if (!nom || !prenom || !email) {
+            return res.status(400).json({ success: false, message: 'Nom, prénom et email sont requis' });
+        }
+
+        const emailOwner = await User.findOne({ email, _id: { $ne: req.user.id } });
+        if (emailOwner) {
+            return res.status(409).json({ success: false, message: 'Cet email est déjà utilisé' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+        }
+
+        user.nom = String(nom).trim();
+        user.prenom = String(prenom).trim();
+        user.email = String(email).trim().toLowerCase();
+        if (telephone) user.telephone = String(telephone).trim();
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            user: {
+                _id: user._id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                telephone: user.telephone,
+                role: user.role,
+                createdAt: (user as any).createdAt,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message || 'Erreur lors de la mise à jour du profil' });
+    }
+});
 
 /**
  * @swagger

@@ -1,5 +1,15 @@
 import { Router } from 'express';
-import { sendSMSCode, verifySMSCode, resendSMSCode, sendPaymentNotification, sendRegistrationConfirmation, sendReminder } from '../controllers/sms.controller';
+import {
+    sendSMSCode,
+    verifySMSCode,
+    resendSMSCode,
+    sendPaymentNotification,
+    sendRegistrationConfirmation,
+    sendReminder,
+    sendLoginOTP,
+    verifyLoginOTP,
+} from '../controllers/sms.controller';
+import { validateRequest, otpLoginSendSchema, otpLoginVerifySchema } from '../config/validation';
 
 const router = Router();
 
@@ -12,5 +22,9 @@ router.post('/resend', resendSMSCode);
 router.post('/payment-notification', sendPaymentNotification);
 router.post('/registration-confirmation', sendRegistrationConfirmation);
 router.post('/reminder', sendReminder);
+
+// Connexion par téléphone (OTP SMS)
+router.post('/login/send', validateRequest(otpLoginSendSchema), sendLoginOTP);
+router.post('/login/verify', validateRequest(otpLoginVerifySchema), verifyLoginOTP);
 
 export default router;

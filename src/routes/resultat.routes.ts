@@ -7,10 +7,19 @@ import {
     getResultatByExamen,
     publishResultats,
     getResultatStats,
-    exportResultatsCSV
+    exportResultatsCSV,
+    genererTableAnonymat,
+    listerCopiesAnonymes,
+    saisirNoteAnonyme,
+    leverAnonymat
 } from '../controllers/resultat.controller';
 
 const router = Router();
+
+router.post('/examens/:examenId/anonymat/generer', protect, restrictTo('ADMIN', 'RESPONSABLE'), genererTableAnonymat);
+router.get('/examens/:examenId/anonymat/copies', protect, restrictTo('ADMIN', 'RESPONSABLE', 'CORRECTEUR'), listerCopiesAnonymes);
+router.post('/anonymat/:numeroAnonymat/notes', protect, restrictTo('CORRECTEUR'), saisirNoteAnonyme);
+router.post('/examens/:examenId/anonymat/lever', protect, restrictTo('ADMIN', 'RESPONSABLE'), leverAnonymat);
 
 // Route protégée : Saisie des notes par le personnel autorisé uniquement
 router.post(

@@ -3,6 +3,211 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Resultat from '../models/Resultat';
 import Candidat from '../models/Candidat';
 import Examen from '../models/Examen';
+import Anonymat from '../models/Anonymat';
+
+function buildNumeroAnonymat(examenId: string, index: number): string {
+    const suffix = examenId.slice(-4).toUpperCase();
+    return `AN-${suffix}-${String(index + 1).padStart(5, '0')}`;
+}
+
+function getCoefficient(examen: any, matiere: string, fallback?: number): number {
+    const epreuve = (examen.epreuves || []).find((item: any) =>
+        item.type === 'EPREUVE' && item.matiere.toLowerCase() === matiere.toLowerCase()
+    );
+
+    return Number(epreuve?.coefficient || fallback || 1);
+}
+
+function getStatutCorrection(notesCount: number, expectedCount: number): 'A_CORRIGER' | 'EN_COURS' | 'TERMINE' {
+    if (notesCount <= 0) return 'A_CORRIGER';
+    if (expectedCount > 0 && notesCount >= expectedCount) return 'TERMINE';
+    return 'EN_COURS';
+}
+
+export const genererTableAnonymat = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const examenId = String(req.params.examenId);
+        const examen = await Examen.findById(examenId);
+
+        if (!examen) {
+            res.status(404).json({ message: 'Examen introuvable' });
+            return;
+        }
+
+        const candidats = examen.candidatsInscrits?.length
+            ? await Candidat.find({ _id: { $in: examen.candidatsInscrits }, statutInscription: 'VALIDE' }).sort({ _id: 1 })
+            : await Candidat.find({ examen: examen.titre, statutInscription: 'VALIDE' }).sort({ _id: 1 });
+
+        const rows = [];
+        for (let i = 0; i < candidats.length; i += 1) {
+            const candidat = candidats[i];
+            const numeroAnonymat = buildNumeroAnonymat(examenId, i);
+            const record = await Anonymat.findOneAndUpdate(
+                { examen: examen._id, candidat: candidat._id },
+                { $setOnInsert: { numeroAnonymat, notes: [] } },
+                { upsert: true, new: true }
+            );
+
+            rows.push({
+                numeroAnonymat: record.numeroAnonymat,
+                candidatId: candidat._id,
+                matricule: candidat.numeroMatricule,
+            });
+        }
+
+        res.status(200).json({
+            message: 'Table d’anonymat générée',
+            examen: { _id: examen._id, titre: examen.titre },
+            total: rows.length,
+            rows,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const listerCopiesAnonymes = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const examenId = String(req.params.examenId);
+        const copies = await Anonymat.find({ examen: examenId })
+            .select('numeroAnonymat notes statutCorrection anonymatLeve updatedAt')
+            .sort({ numeroAnonymat: 1 });
+
+        res.status(200).json(copies);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const saisirNoteAnonyme = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const numeroAnonymat = String(req.params.numeroAnonymat);
+        const { examenId, matiere, valeur, coefficient } = req.body;
+        const correcteurId = req.user?.id;
+
+        if (!examenId || !matiere || valeur === undefined) {
+            res.status(400).json({ message: 'Examen, matière et note sont requis' });
+            return;
+        }
+
+        const examen = await Examen.findById(examenId);
+        if (!examen) {
+            res.status(404).json({ message: 'Examen introuvable' });
+            return;
+        }
+
+        const copie = await Anonymat.findOne({ examen: examenId, numeroAnonymat, anonymatLeve: false });
+        if (!copie) {
+            res.status(404).json({ message: 'Copie anonyme introuvable ou déjà levée' });
+            return;
+        }
+
+        const noteValue = Number(valeur);
+        if (Number.isNaN(noteValue) || noteValue < 0 || noteValue > 20) {
+            res.status(400).json({ message: 'La note doit être comprise entre 0 et 20' });
+            return;
+        }
+
+        const resolvedCoefficient = getCoefficient(examen, matiere, coefficient);
+        const existingIndex = copie.notes.findIndex((note: any) => note.matiere === matiere);
+        const notePayload = {
+            matiere,
+            valeur: noteValue,
+            coefficient: resolvedCoefficient,
+            correcteur: correcteurId as any,
+            saisieAt: new Date(),
+        };
+
+        if (existingIndex >= 0) {
+            copie.notes[existingIndex] = notePayload as any;
+        } else {
+            copie.notes.push(notePayload as any);
+        }
+
+        const expectedCount = (examen.epreuves || []).filter((epreuve: any) => epreuve.type === 'EPREUVE').length;
+        copie.statutCorrection = getStatutCorrection(copie.notes.length, expectedCount);
+        await copie.save();
+
+        res.status(200).json({
+            message: 'Note anonyme enregistrée',
+            numeroAnonymat: copie.numeroAnonymat,
+            statutCorrection: copie.statutCorrection,
+            notes: copie.notes.map((note: any) => ({
+                matiere: note.matiere,
+                valeur: note.valeur,
+                coefficient: note.coefficient,
+            })),
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const leverAnonymat = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const examenId = String(req.params.examenId);
+        const adminId = req.user?.id;
+        const examen = await Examen.findById(examenId);
+
+        if (!examen) {
+            res.status(404).json({ message: 'Examen introuvable' });
+            return;
+        }
+
+        const copies = await Anonymat.find({ examen: examenId });
+        const expectedCount = (examen.epreuves || []).filter((epreuve: any) => epreuve.type === 'EPREUVE').length;
+        const incompletes = copies.filter((copie: any) => expectedCount > 0 && copie.notes.length < expectedCount);
+
+        if (incompletes.length > 0 && req.body?.force !== true) {
+            res.status(409).json({
+                message: 'Certaines copies ne sont pas entièrement corrigées',
+                count: incompletes.length,
+                numeros: incompletes.map((copie: any) => copie.numeroAnonymat),
+            });
+            return;
+        }
+
+        let resultatsCrees = 0;
+        let resultatsMisAJour = 0;
+
+        for (const copie of copies as any[]) {
+            let resultat = await Resultat.findOne({ candidat: copie.candidat });
+            if (!resultat) {
+                resultat = new Resultat({
+                    candidat: copie.candidat,
+                    examen: examenId,
+                    notes: [],
+                });
+                resultatsCrees += 1;
+            } else {
+                resultat.examen = examenId;
+                resultatsMisAJour += 1;
+            }
+
+            resultat.notes = copie.notes.map((note: any) => ({
+                matiere: note.matiere,
+                valeur: note.valeur,
+                coefficient: note.coefficient,
+                correcteur: note.correcteur,
+            }));
+            await resultat.save();
+
+            copie.anonymatLeve = true;
+            copie.leveePar = adminId as any;
+            copie.leveeAt = new Date();
+            await copie.save();
+        }
+
+        res.status(200).json({
+            message: 'Anonymat levé et résultats calculés',
+            totalCopies: copies.length,
+            resultatsCrees,
+            resultatsMisAJour,
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 export const saisirNote = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

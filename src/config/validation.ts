@@ -34,6 +34,22 @@ export const googleAuthSchema = Joi.object({
     token: Joi.string().required(),
 });
 
+export const otpLoginSendSchema = Joi.object({
+    telephone: Joi.string().pattern(/^\+?[0-9]{9,}$/).required().messages({
+        'string.pattern.base': 'Numéro de téléphone invalide'
+    }),
+});
+
+export const otpLoginVerifySchema = Joi.object({
+    telephone: Joi.string().pattern(/^\+?[0-9]{9,}$/).required().messages({
+        'string.pattern.base': 'Numéro de téléphone invalide'
+    }),
+    code: Joi.string().length(6).pattern(/^[0-9]+$/).required().messages({
+        'string.pattern.base': 'Le code doit être numérique',
+        'string.length': 'Le code doit contenir 6 chiffres'
+    }),
+});
+
 // ========================================
 // SCHÉMAS CANDIDAT
 // ========================================
