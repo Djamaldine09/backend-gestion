@@ -180,11 +180,15 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // ==========================================
 // DEMARRAGE DU SERVEUR
 // ==========================================
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const server = app.listen(PORT, () => {
     appLog.info(`Serveur démarré sur le port ${PORT}`, { environment: process.env.NODE_ENV || 'development' });
     console.log(`\n✅ Serveur ExamGest MG en écoute sur http://localhost:${PORT}`);
     console.log(`📚 Documentation API disponible sur http://localhost:${PORT}/api-docs\n`);
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Serveur demarre sur le port ${PORT}`);
 });
 
 // Gestion des erreurs non capturées

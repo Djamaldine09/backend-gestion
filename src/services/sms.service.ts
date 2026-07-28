@@ -108,7 +108,7 @@ export class SMSService {
     return this.sendSMS({
       phoneNumber: params.phoneNumber,
       message,
-      senderName: 'ExamGest',
+      senderName: 'Exam Mada',
     });
   }
 
