@@ -9,6 +9,7 @@ export interface IUser extends Document {
     motDePasse: string;
     role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     telephone?: string;
+    twoFactorEnabled?: boolean;
     resetPasswordToken?: string;
     resetPasswordExpiry?: Date;
     comparePassword(enteredPassword: string): Promise<boolean>;
@@ -25,6 +26,7 @@ const UserSchema: Schema = new Schema({
         default: 'CANDIDAT' 
     },
     telephone: { type: String }, // Utile pour les notifications SMS et le paiement mobile
+    twoFactorEnabled: { type: Boolean, default: false },
     resetPasswordToken: { type: String },
     resetPasswordExpiry: { type: Date }
 }, { timestamps: true });

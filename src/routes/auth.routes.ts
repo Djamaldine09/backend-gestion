@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
-import { register, login, loginWithPhone, forgotPassword, resetPassword } from '../controllers/auth.controller';
+import { register, login, loginWithPhone, forgotPassword, resetPassword, verifyTwoFactorLogin, updateTwoFactorPreference } from '../controllers/auth.controller';
 import { 
     validateRequest, 
     registerSchema, 
     loginSchema, 
+    twoFactorLoginSchema,
+    twoFactorPreferenceSchema,
     loginPhoneSchema,
     googleAuthSchema 
 } from '../config/validation';
@@ -91,6 +93,10 @@ router.post('/register', validateRequest(registerSchema), register);
  *         description: Identifiants invalides
  */
 router.post('/login', validateRequest(loginSchema), login);
+
+router.post('/login/2fa', validateRequest(twoFactorLoginSchema), verifyTwoFactorLogin);
+
+router.put('/me/2fa', protect, validateRequest(twoFactorPreferenceSchema), updateTwoFactorPreference);
 
 /**
  * @swagger

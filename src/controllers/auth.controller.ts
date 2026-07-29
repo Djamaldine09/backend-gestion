@@ -5,6 +5,34 @@ import admin from 'firebase-admin';
 import serviceAccount from '../../examgest-a96f9-firebase-adminsdk-fbsvc-7f7dcbab2e.json';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/email.service';
+import SMSService from '../services/sms.service';
+
+const twoFactorChallenges = new Map<string, {
+    userId: string;
+    code: string;
+    expiresAt: Date;
+}>();
+
+const generateTwoFactorCode = (): string => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const maskPhone = (phone?: string): string => {
+    if (!phone) return '';
+    const visible = phone.replace(/\D/g, '').slice(-2);
+    return `******${visible}`;
+};
+
+const buildAuthPayload = (user: any) => ({
+    _id: user._id,
+    nom: user.nom,
+    prenom: user.prenom,
+    email: user.email,
+    telephone: user.telephone,
+    twoFactorEnabled: user.twoFactorEnabled || false,
+    role: user.role,
+    token: generateToken(user._id.toString(), user.role),
+});
 
 // Fonction utilitaire pour générer le Token
 export const generateToken = (id: string, role: string) => {
@@ -42,6 +70,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             prenom: user.prenom,
             email: user.email,
             role: user.role,
+            twoFactorEnabled: user.twoFactorEnabled || false,
             token: generateToken(user._id.toString(), user.role)
         });
     } catch (error: any) {
@@ -57,18 +86,136 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const user = await User.findOne({ email });
 
         if (user && (await user.comparePassword(motDePasse))) {
-            res.json({
-                _id: user._id,
-                nom: user.nom,
-                email: user.email,
-                role: user.role,
-                token: generateToken(user._id.toString(), user.role)
-            });
+            if (user.twoFactorEnabled && user.telephone) {
+                const code = generateTwoFactorCode();
+                const rawChallengeToken = crypto.randomBytes(32).toString('hex');
+                const challengeToken = crypto
+                    .createHash('sha256')
+                    .update(rawChallengeToken)
+                    .digest('hex');
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+                twoFactorChallenges.set(challengeToken, {
+                    userId: user._id.toString(),
+                    code,
+                    expiresAt,
+                });
+
+                const smsResult = await SMSService.sendSMS({
+                    phoneNumber: user.telephone,
+                    message: `Votre code 2FA Exam Mada est: ${code}. Valide 10 minutes.`,
+                });
+
+                if (!smsResult.success) {
+                    res.status(500).json({
+                        message: 'Erreur envoi du code 2FA',
+                        error: smsResult.error,
+                    });
+                    return;
+                }
+
+                res.status(200).json({
+                    requiresTwoFactor: true,
+                    twoFactorToken: rawChallengeToken,
+                    maskedTelephone: maskPhone(user.telephone),
+                    expiresAt,
+                    message: 'Code 2FA envoye par SMS',
+                });
+                return;
+            }
+
+            res.json(buildAuthPayload(user));
         } else {
             res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
     } catch (error: any) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const verifyTwoFactorLogin = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { twoFactorToken, code } = req.body;
+
+        const challengeToken = crypto
+            .createHash('sha256')
+            .update(twoFactorToken)
+            .digest('hex');
+        const stored = twoFactorChallenges.get(challengeToken);
+
+        if (!stored) {
+            res.status(400).json({ message: 'Session 2FA introuvable ou expiree' });
+            return;
+        }
+
+        if (stored.expiresAt < new Date()) {
+            twoFactorChallenges.delete(challengeToken);
+            res.status(400).json({ message: 'Code 2FA expire' });
+            return;
+        }
+
+        if (stored.code !== code) {
+            res.status(401).json({ message: 'Code 2FA incorrect' });
+            return;
+        }
+
+        const user = await User.findById(stored.userId);
+        if (!user) {
+            twoFactorChallenges.delete(challengeToken);
+            res.status(404).json({ message: 'Utilisateur introuvable' });
+            return;
+        }
+
+        twoFactorChallenges.delete(challengeToken);
+        res.status(200).json(buildAuthPayload(user));
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateTwoFactorPreference = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const authReq = req as Request & { user?: { id?: string } };
+        const { enabled } = req.body;
+
+        if (!authReq.user?.id) {
+            res.status(401).json({ success: false, message: 'Utilisateur non authentifie' });
+            return;
+        }
+
+        const user = await User.findById(authReq.user.id);
+        if (!user) {
+            res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+            return;
+        }
+
+        if (enabled && !user.telephone) {
+            res.status(400).json({
+                success: false,
+                message: 'Ajoutez un numero de telephone avant d activer la 2FA',
+            });
+            return;
+        }
+
+        user.twoFactorEnabled = Boolean(enabled);
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: user.twoFactorEnabled ? '2FA activee' : '2FA desactivee',
+            user: {
+                _id: user._id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                telephone: user.telephone,
+                role: user.role,
+                twoFactorEnabled: user.twoFactorEnabled,
+                createdAt: (user as any).createdAt,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -117,6 +264,7 @@ export const loginWithPhone = async (req: Request, res: Response) => {
             prenom: user.prenom,
             telephone: user.telephone,
             role: user.role,
+            twoFactorEnabled: user.twoFactorEnabled || false,
             token: generateToken(user._id.toString(), user.role)
         });
 

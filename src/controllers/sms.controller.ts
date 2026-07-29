@@ -237,7 +237,7 @@ export const sendLoginOTP = async (req: Request, res: Response): Promise<void> =
 
         const smsResult = await SMSService.sendSMS({
             phoneNumber: telephone,
-            message: `Votre code de connexion ExamGest est: ${code}. Valide 10 minutes.`
+            message: `Votre code de connexion Exam Mada est: ${code}. Valide 10 minutes.`
         });
 
         if (!smsResult.success) {

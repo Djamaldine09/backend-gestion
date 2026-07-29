@@ -24,6 +24,18 @@ export const loginSchema = Joi.object({
     motDePasse: Joi.string().required(),
 });
 
+export const twoFactorLoginSchema = Joi.object({
+    twoFactorToken: Joi.string().required(),
+    code: Joi.string().length(6).pattern(/^[0-9]+$/).required().messages({
+        'string.pattern.base': 'Le code doit etre numerique',
+        'string.length': 'Le code doit contenir 6 chiffres'
+    }),
+});
+
+export const twoFactorPreferenceSchema = Joi.object({
+    enabled: Joi.boolean().required(),
+});
+
 export const loginPhoneSchema = Joi.object({
     telephone: Joi.string().pattern(/^\+?[0-9]{10,}$/).required().messages({
         'string.pattern.base': 'Numéro de téléphone invalide'
