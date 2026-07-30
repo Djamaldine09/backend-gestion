@@ -8,3 +8,4 @@
 [2026-07-22 21:59:19] [ERROR] Erreur envoi SMS Befiana {"service":"backend-gestion","context":"SMSService","error":"Befiana SMS non configure","phoneNumber":"+261389599911"}
 [2026-07-22 23:12:16] [ERROR] Erreur lors de l'authentification Google {"service":"backend-gestion","context":"Auth","error":"fetch failed"}
 [2026-07-22 23:12:36] [ERROR] Erreur lors de l'authentification Google {"service":"backend-gestion","context":"Auth","error":"fetch failed"}
+[2026-07-29 15:36:40] [ERROR] Erreur non gérée {"service":"backend-gestion","context":"App","error":"Seuls les fichiers JPEG, PNG et PDF sont autorisés","path":"/api/inscription/documents","method":"POST","statusCode":500}
