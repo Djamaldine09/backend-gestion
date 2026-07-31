@@ -10651,3 +10651,6 @@
 [2026-07-31 08:08:28] [INFO] Application démarrée avec les middlewares de sécurité {"service":"backend-gestion","context":"App"}
 [2026-07-31 08:08:28] [INFO] Documentation Swagger disponible sur /api-docs {"service":"backend-gestion","context":"App"}
 [2026-07-31 08:08:30] [INFO] Serveur démarré sur le port 5000 {"service":"backend-gestion","context":"App","environment":"development"}
+[2026-07-31 09:12:14] [INFO] Application démarrée avec les middlewares de sécurité {"service":"backend-gestion","context":"App"}
+[2026-07-31 09:12:14] [INFO] Documentation Swagger disponible sur /api-docs {"service":"backend-gestion","context":"App"}
+[2026-07-31 09:12:30] [INFO] Serveur démarré sur le port 5000 {"service":"backend-gestion","context":"App","environment":"development"}

@@ -320,4 +320,66 @@ router.post('/google', validateRequest(googleAuthSchema), async (req, res) => {
     }
 });
 
+router.post('/facebook', validateRequest(googleAuthSchema), async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        authLog.info('Tentative d authentification Facebook');
+
+        if (!token) {
+            return res.status(400).json({ success: false, message: 'Token manquant' });
+        }
+
+        const facebookResponse = await fetch(
+            `https://graph.facebook.com/me?fields=id,first_name,last_name,name,email&access_token=${encodeURIComponent(token)}`
+        );
+
+        if (!facebookResponse.ok) {
+            authLog.warn('Token Facebook invalide ou expire');
+            return res.status(401).json({ success: false, message: 'Token Facebook invalide ou expire' });
+        }
+
+        const payload = await facebookResponse.json();
+
+        if (!payload || !payload.id) {
+            authLog.warn('Profil Facebook incomplet');
+            return res.status(401).json({ success: false, message: 'Profil Facebook incomplet ou invalide' });
+        }
+
+        const email = payload.email || `${payload.id}@facebook.examgest.local`;
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            authLog.info('Creation d un nouvel utilisateur Facebook', { email });
+            const randomPassword = Math.random().toString(36).slice(-10) + 'Fb1!';
+            user = new User({
+                email,
+                nom: payload.last_name || payload.name || 'Candidat',
+                prenom: payload.first_name || '',
+                role: 'CANDIDAT',
+                motDePasse: randomPassword,
+            });
+            await user.save();
+        }
+
+        if (!process.env.JWT_SECRET) {
+            authLog.error('JWT_SECRET non configure');
+            return res.status(500).json({ success: false, message: 'Erreur de configuration serveur' });
+        }
+
+        const jwtToken = jwt.sign(
+            { userId: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        authLog.info('Authentification Facebook reussie', { userId: user._id });
+
+        res.status(200).json({ success: true, jwt: jwtToken, token: jwtToken, user });
+    } catch (error: any) {
+        authLog.error('Erreur lors de l authentification Facebook', error);
+        res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+    }
+});
+
 export default router;
