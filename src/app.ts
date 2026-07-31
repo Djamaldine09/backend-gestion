@@ -36,7 +36,6 @@ const app: Application = express();
 const appLog = createLog('App');
 
 // Connexion à la base de données
-connectDB();
 
 
 
@@ -46,9 +45,14 @@ connectDB();
 app.use(helmet()); // Sécurité des en-têtes HTTP
 
 // Configuration CORS dynamique pour localhost en développement
-const corsOrigin = process.env.NODE_ENV === 'development' 
-    ? /^http:\/\/localhost:\d+$/ // Accepte tous les ports localhost
-    : ['http://localhost:3000']; // Production: liste blanche stricte
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const corsOrigin = process.env.NODE_ENV === 'development'
+    ? [/^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/]
+    : configuredOrigins;
 
 app.use(cors({
     origin: corsOrigin,
@@ -181,14 +185,20 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // DEMARRAGE DU SERVEUR
 // ==========================================
 const PORT = Number(process.env.PORT) || 5000;
-const server = app.listen(PORT, () => {
+const startServer = async () => {
+    await connectDB();
+
+    app.listen(PORT, '0.0.0.0', () => {
     appLog.info(`Serveur démarré sur le port ${PORT}`, { environment: process.env.NODE_ENV || 'development' });
     console.log(`\n✅ Serveur ExamGest MG en écoute sur http://localhost:${PORT}`);
     console.log(`📚 Documentation API disponible sur http://localhost:${PORT}/api-docs\n`);
-});
+    });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Serveur demarre sur le port ${PORT}`);
+};
+
+startServer().catch((error) => {
+    appLog.error('Demarrage serveur impossible', error);
+    process.exit(1);
 });
 
 // Gestion des erreurs non capturées
