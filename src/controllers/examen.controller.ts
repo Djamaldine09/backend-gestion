@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Examen from '../models/Examen';
 import Candidat from '../models/Candidat';
+import { notifyUsers } from '../services/notification.service';
 
 export const listExamens = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -209,7 +210,17 @@ export const publishConvocations = async (req: AuthenticatedRequest, res: Respon
         examen.nombreCandidats = candidats.length;
         await examen.save();
 
-        res.status(200).json({ message: 'Convocations publiées', published: candidats.length });
+        // Notifier chaque candidat concerné que sa convocation est disponible
+        const userIds = candidats.map((cand) => (cand as any).user?._id || (cand as any).user);
+        const { count: notified } = await notifyUsers(
+            userIds,
+            'Convocation disponible',
+            `Votre convocation pour l'examen "${examen.titre}" est maintenant disponible. Consultez-la et téléchargez votre document.`,
+            'SUCCESS',
+            '/convocation'
+        );
+
+        res.status(200).json({ message: 'Convocations publiées', published: candidats.length, notified });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

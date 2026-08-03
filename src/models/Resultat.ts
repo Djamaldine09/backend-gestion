@@ -14,7 +14,8 @@ export interface IResultat extends Document {
     notes: INote[];
     moyenneGenerale: number;
     statutFinal: 'EN_ATTENTE' | 'ADMIS' | 'REFUSE' | 'REPECHAGE';
-    estPublie: boolean
+    estPublie: boolean;
+    datePublication?: Date;
 }
 
 const NoteSchema = new Schema<INote>({
@@ -30,7 +31,8 @@ const ResultatSchema: Schema = new Schema({
     notes: [NoteSchema],
     moyenneGenerale: { type: Number, default: 0 },
     statutFinal: { type: String, enum: ['EN_ATTENTE', 'ADMIS', 'REFUSE', 'REPECHAGE'], default: 'EN_ATTENTE' },
-    estPublie: { type: Boolean, default: false }
+    estPublie: { type: Boolean, default: false },
+    datePublication: { type: Date }
 }, { timestamps: true });
 
 // ==========================================
