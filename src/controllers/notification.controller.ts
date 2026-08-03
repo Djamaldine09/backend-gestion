@@ -36,6 +36,22 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response): Prom
     }
 };
 
+export const markAllAsRead = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const result = await Notification.updateMany(
+            { destinataire: req.user!.id, lue: false },
+            { lue: true, dateLecture: new Date() }
+        );
+
+        res.status(200).json({
+            message: 'Toutes les notifications ont été marquées comme lues',
+            count: result.modifiedCount
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const sendBroadcast = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const { message, type } = req.body;
