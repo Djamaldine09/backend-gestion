@@ -10,6 +10,11 @@ export interface IUser extends Document {
     role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     telephone?: string;
     twoFactorEnabled?: boolean;
+    fcmTokens?: Array<{
+        token: string;
+        platform: 'web' | 'android' | 'ios';
+        lastUsedAt: Date;
+    }>;
     resetPasswordToken?: string;
     resetPasswordExpiry?: Date;
     comparePassword(enteredPassword: string): Promise<boolean>;
@@ -27,6 +32,11 @@ const UserSchema: Schema = new Schema({
     },
     telephone: { type: String }, // Utile pour les notifications SMS et le paiement mobile
     twoFactorEnabled: { type: Boolean, default: false },
+    fcmTokens: [{
+        token: { type: String, required: true },
+        platform: { type: String, enum: ['web', 'android', 'ios'], default: 'web' },
+        lastUsedAt: { type: Date, default: Date.now }
+    }],
     resetPasswordToken: { type: String },
     resetPasswordExpiry: { type: Date }
 }, { timestamps: true });

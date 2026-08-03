@@ -6,13 +6,13 @@ import User from '../models/User';
 export interface AuthenticatedRequest extends Request {
     user?: {
         id: string;
-        role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CANDIDAT';
+        role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     };
 }
 
 interface JwtPayload {
     userId: string;
-    role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CANDIDAT';
+    role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
 }
 
 // 1. Middleware de vérification du Token (Authentification)
