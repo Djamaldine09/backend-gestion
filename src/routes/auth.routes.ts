@@ -1,5 +1,8 @@
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import User from '../models/User';
 import { register, login, loginWithPhone, forgotPassword, resetPassword, verifyTwoFactorLogin, updateTwoFactorPreference } from '../controllers/auth.controller';
 import { 
@@ -16,6 +19,34 @@ import { AuthenticatedRequest, protect } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 const authLog = createLog('Auth');
+
+// Stockage des photos de profil
+const avatarDir = path.join(__dirname, '../../uploads/avatars');
+if (!fs.existsSync(avatarDir)) {
+    fs.mkdirSync(avatarDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+    destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => cb(null, avatarDir),
+    filename: (req: AuthenticatedRequest, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+        const userId = req.user?.id || 'anonyme';
+        cb(null, `${userId}_${Date.now()}${ext}`);
+    },
+});
+
+const uploadAvatar = multer({
+    storage: avatarStorage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+    fileFilter: (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowed.includes(file.mimetype)) {
+            cb(new Error('Format d\'image non supporté. Utilisez JPG, PNG, WEBP ou GIF.'));
+            return;
+        }
+        cb(null, true);
+    },
+});
 
 /**
  * @swagger
@@ -210,12 +241,133 @@ router.put('/me', protect, async (req: AuthenticatedRequest, res: Response) => {
                 prenom: user.prenom,
                 email: user.email,
                 telephone: user.telephone,
+                photo: user.photo,
                 role: user.role,
                 createdAt: (user as any).createdAt,
             },
         });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message || 'Erreur lors de la mise à jour du profil' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/auth/me/photo:
+ *   post:
+ *     summary: Uploader / remplacer la photo de profil de l'utilisateur connecté
+ *     tags:
+ *       - Authentification
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Photo de profil mise à jour
+ *       400:
+ *         description: Fichier manquant ou invalide
+ *       401:
+ *         description: Non authentifié
+ */
+router.post('/me/photo', protect, uploadAvatar.single('photo'), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        if (!req.user?.id) {
+            return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Aucune image fournie' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+        }
+
+        // Supprimer l'ancienne photo si elle existe
+        if (user.photo) {
+            const oldPath = path.join(__dirname, '../..', user.photo);
+            fs.unlink(oldPath, () => {});
+        }
+
+        user.photo = `/uploads/avatars/${req.file.filename}`;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            user: {
+                _id: user._id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                telephone: user.telephone,
+                photo: user.photo,
+                role: user.role,
+                createdAt: (user as any).createdAt,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message || 'Erreur lors de l\'upload de la photo' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/auth/me/photo:
+ *   delete:
+ *     summary: Supprimer la photo de profil de l'utilisateur connecté
+ *     tags:
+ *       - Authentification
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Photo supprimée
+ *       401:
+ *         description: Non authentifié
+ */
+router.delete('/me/photo', protect, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        if (!req.user?.id) {
+            return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+        }
+
+        if (user.photo) {
+            const oldPath = path.join(__dirname, '../..', user.photo);
+            fs.unlink(oldPath, () => {});
+        }
+        user.photo = undefined;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            user: {
+                _id: user._id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                telephone: user.telephone,
+                photo: user.photo,
+                role: user.role,
+                createdAt: (user as any).createdAt,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message || 'Erreur lors de la suppression de la photo' });
     }
 });
 

@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Application, Request, Response, NextFunction } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -74,6 +75,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 appLog.info('Application démarrée avec les middlewares de sécurité');
+
+// ==========================================
+// FICHIERS STATIQUES (photos de profil, etc.)
+// ==========================================
+app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+    // Autorise le chargement cross-origin des images (frontend sur un autre domaine)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // ==========================================
 // ROUTES DE DOCUMENTATION API

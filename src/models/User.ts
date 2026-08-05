@@ -9,6 +9,7 @@ export interface IUser extends Document {
     motDePasse: string;
     role: 'ADMIN' | 'RESPONSABLE' | 'SURVEILLANT' | 'CORRECTEUR' | 'CANDIDAT';
     telephone?: string;
+    photo?: string;
     twoFactorEnabled?: boolean;
     fcmTokens?: Array<{
         token: string;
@@ -31,6 +32,7 @@ const UserSchema: Schema = new Schema({
         default: 'CANDIDAT' 
     },
     telephone: { type: String }, // Utile pour les notifications SMS et le paiement mobile
+    photo: { type: String }, // Chemin relatif de la photo de profil (ex: /uploads/avatars/xxx.jpg)
     twoFactorEnabled: { type: Boolean, default: false },
     fcmTokens: [{
         token: { type: String, required: true },
