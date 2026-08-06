@@ -29,8 +29,10 @@ const buildAuthPayload = (user: any) => ({
     prenom: user.prenom,
     email: user.email,
     telephone: user.telephone,
+    photo: user.photo,
     twoFactorEnabled: user.twoFactorEnabled || false,
     role: user.role,
+    createdAt: user.createdAt,
     token: generateToken(user._id.toString(), user.role),
 });
 
@@ -209,6 +211,7 @@ export const updateTwoFactorPreference = async (req: Request, res: Response): Pr
                 prenom: user.prenom,
                 email: user.email,
                 telephone: user.telephone,
+                photo: user.photo,
                 role: user.role,
                 twoFactorEnabled: user.twoFactorEnabled,
                 createdAt: (user as any).createdAt,
