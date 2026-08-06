@@ -14,6 +14,7 @@ type CentreLike = {
   email?: string;
   salle?: string;
   numeroPlace?: string | number;
+  photo?: string;
   [key: string]: any;
 };
 
@@ -51,6 +52,7 @@ export function buildCentreAffectePayload(centre: CentreLike | null | undefined,
     longitude: overrides.longitude ?? centre?.longitude,
     telephone: overrides.telephone ?? centre?.telephone,
     email: overrides.email ?? centre?.email,
+    photo: overrides.photo ?? centre?.photo,
   };
 }
 

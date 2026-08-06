@@ -1,4 +1,6 @@
 import { Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import User from '../models/User';
 import Candidat from '../models/Candidat';
 import CentreExamen from '../models/CentreExamen';
@@ -251,6 +253,56 @@ export const deleteCentre = async (req: AuthenticatedRequest, res: Response): Pr
     res.status(200).json({ message: 'Centre supprime.' });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+type MulterAdminRequest = AuthenticatedRequest & { file?: Express.Multer.File };
+
+export const uploadCentrePhoto = async (req: MulterAdminRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, message: 'Aucune image fournie' });
+      return;
+    }
+
+    const centre = await CentreExamen.findById(req.params.id);
+    if (!centre) {
+      res.status(404).json({ success: false, message: 'Centre introuvable.' });
+      return;
+    }
+
+    if (centre.photo) {
+      const oldPath = path.join(__dirname, '../..', centre.photo);
+      fs.unlink(oldPath, () => {});
+    }
+
+    centre.photo = `/uploads/centres/${req.file.filename}`;
+    await centre.save();
+
+    res.status(200).json({ success: true, data: centre });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteCentrePhoto = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const centre = await CentreExamen.findById(req.params.id);
+    if (!centre) {
+      res.status(404).json({ success: false, message: 'Centre introuvable.' });
+      return;
+    }
+
+    if (centre.photo) {
+      const oldPath = path.join(__dirname, '../..', centre.photo);
+      fs.unlink(oldPath, () => {});
+    }
+    centre.photo = undefined;
+    await centre.save();
+
+    res.status(200).json({ success: true, data: centre });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

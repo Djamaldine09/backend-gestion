@@ -25,7 +25,7 @@ async function findCandidate(userId: string) {
     .populate({ path: 'user', select: 'nom prenom email role' })
     .populate({
       path: 'centreExamen',
-      select: 'nom adresse ville region salle numeroPlace latitude longitude telephone email coords',
+      select: 'nom adresse ville region salle numeroPlace latitude longitude telephone email coords photo',
     });
 }
 
@@ -76,6 +76,7 @@ export const getCurrentCandidat = async (req: AuthenticatedRequest, res: Respons
       coords: centreSource.coords ?? centreRelation.coords,
       latitude: centreSource.latitude ?? centreRelation.latitude,
       longitude: centreSource.longitude ?? centreRelation.longitude,
+      photo: centreRelation.photo ?? centreSource.photo,
     };
 
     const hasCentreData = Boolean(

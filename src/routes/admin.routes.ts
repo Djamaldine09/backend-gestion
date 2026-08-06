@@ -1,9 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { protect, restrictTo } from '../middlewares/auth.middleware';
 import {
   createCentre,
   createUser,
   deleteCentre,
+  deleteCentrePhoto,
   deleteUser,
   getNationalDashboard,
   getNationalReport,
@@ -12,6 +16,7 @@ import {
   listCandidats,
   updateCentre,
   updateUser,
+  uploadCentrePhoto,
   getDetailedStats,
   getReportByRegion,
   getAuditLogs,
@@ -23,6 +28,33 @@ import {
 } from '../controllers/admin.controller';
 
 const router = Router();
+
+// Stockage des photos de centres d'examen
+const centrePhotoDir = path.join(__dirname, '../../uploads/centres');
+if (!fs.existsSync(centrePhotoDir)) {
+  fs.mkdirSync(centrePhotoDir, { recursive: true });
+}
+
+const centrePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, centrePhotoDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${req.params.id}_${Date.now()}${ext}`);
+  },
+});
+
+const uploadCentrePhotoMiddleware = multer({
+  storage: centrePhotoStorage,
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.mimetype)) {
+      cb(new Error("Format d'image non supporté. Utilisez JPG, PNG, WEBP ou GIF."));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 // Routes requiring ADMIN only
 const adminRouter = Router();
@@ -49,6 +81,8 @@ router.get('/centres', listCentres);
 router.post('/centres', createCentre);
 router.put('/centres/:id', updateCentre);
 router.delete('/centres/:id', deleteCentre);
+router.post('/centres/:id/photo', uploadCentrePhotoMiddleware.single('photo'), uploadCentrePhoto);
+router.delete('/centres/:id/photo', deleteCentrePhoto);
 
 // Mount admin-only routes
 router.use('/', adminRouter);

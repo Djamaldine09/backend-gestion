@@ -16,6 +16,7 @@ export interface ICentreExamen extends Document {
     email?: string;
     salle?: string;
     numeroPlace?: number;
+    photo?: string;
 }
 
 const CentreExamenSchema: Schema = new Schema({
@@ -40,7 +41,8 @@ const CentreExamenSchema: Schema = new Schema({
     telephone: { type: String },
     email: { type: String },
     salle: { type: String },
-    numeroPlace: { type: Number }
+    numeroPlace: { type: Number },
+    photo: { type: String } // Chemin relatif de la photo du centre (ex: /uploads/centres/xxx.jpg)
 }, { timestamps: true });
 
 export default mongoose.model<ICentreExamen>('CentreExamen', CentreExamenSchema);
