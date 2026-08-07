@@ -183,7 +183,7 @@ export const updateCandidatProfile = async (req: Request, res: Response): Promis
     console.log('  candidat existant:', candidat ? 'YES' : 'NO');
     
     if (!candidat) {
-      console.log('  📝 Creating new candidat...');
+      console.log('Creating new candidat...');
       // Créer le candidat s'il n'existe pas avec des valeurs par défaut pour les champs obligatoires
       const annee = new Date().getFullYear();
       const count = await Candidat.countDocuments({ numeroMatricule: new RegExp(`^BAC${annee}`) });
@@ -194,9 +194,9 @@ export const updateCandidatProfile = async (req: Request, res: Response): Promis
         user: userId,
         dateNaissance: dateNaissance ? new Date(dateNaissance) : new Date('2000-01-01'),
         lieuNaissance: lieuNaissance || 'Non spécifié',
-        genre: genre || 'M',
-        examen: examen || 'Baccalauréat',
-        serieFiliere: serieFiliere || 'Générale',
+        genre: genre || 'Non spécifié',
+        examen: examen || 'Non spécifié',
+        serieFiliere: serieFiliere || 'Non spécifié',
         adresse,
         region,
         statutInscription: 'BROUILLON',
