@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Resultat from '../models/Resultat';
 import Candidat from '../models/Candidat';
@@ -263,6 +263,14 @@ export const saisirNote = async (req: AuthenticatedRequest, res: Response): Prom
     }
 };
 
+const deriveMention = (moyenne: number): string => {
+    if (moyenne >= 16) return 'Très bien';
+    if (moyenne >= 14) return 'Bien';
+    if (moyenne >= 12) return 'Assez bien';
+    if (moyenne >= 10) return 'Passable';
+    return '—';
+};
+
 export const consulterMonResultat = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const userId = req.user?.id;
@@ -294,6 +302,55 @@ export const consulterMonResultat = async (req: AuthenticatedRequest, res: Respo
         // 4. Si c'est publié, on renvoie le bulletin complet
         res.status(200).json(resultat);
 
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getPublicResultatByMatricule = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const matricule = String(req.params.matricule || '').trim();
+
+        if (!matricule) {
+            res.status(400).json({ message: 'Matricule requis.' });
+            return;
+        }
+
+        const candidat = await Candidat.findOne({ numeroMatricule: matricule }).populate('user');
+        if (!candidat) {
+            res.status(404).json({ message: 'Aucun résultat trouvé pour ce matricule.' });
+            return;
+        }
+
+        const resultat = await Resultat.findOne({ candidat: candidat._id });
+        if (!resultat) {
+            res.status(404).json({ message: 'Aucun résultat trouvé pour ce matricule.' });
+            return;
+        }
+
+        if (!resultat.estPublie) {
+            res.status(403).json({ message: 'Les résultats ne sont pas encore publiés officiellement.' });
+            return;
+        }
+
+        const nomComplet = `${(candidat.user as any)?.nom || ''} ${(candidat.user as any)?.prenom || ''}`.trim() || 'Candidat';
+
+        res.status(200).json({
+            matricule: candidat.numeroMatricule || matricule,
+            nomComplet,
+            examen: resultat.examen || candidat.examen || 'Examen',
+            centre: candidat.centreAffecte?.nom,
+            region: candidat.region,
+            moyenne: resultat.moyenneGenerale,
+            mention: deriveMention(resultat.moyenneGenerale),
+            statut: resultat.statutFinal,
+            datePublication: resultat.datePublication ? resultat.datePublication.toISOString() : undefined,
+            notes: resultat.notes.map((note) => ({
+                matiere: note.matiere,
+                valeur: note.valeur,
+                coefficient: note.coefficient,
+            })),
+        });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
