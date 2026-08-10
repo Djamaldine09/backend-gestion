@@ -7,14 +7,19 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+// Répertoire de destination des uploads : chemin absolu basé sur la racine du
+// backend (indépendant du répertoire depuis lequel le process est démarré),
+// pour rester cohérent avec candidat.controller.ts et document.controller.ts.
+const BACKEND_ROOT = path.join(__dirname, '../..');
+const UPLOAD_DIR_ABS = path.join(BACKEND_ROOT, 'uploads/documents');
+
 // Configuration de Multer pour le téléchargement de fichiers
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = './uploads/documents';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(UPLOAD_DIR_ABS)) {
+      fs.mkdirSync(UPLOAD_DIR_ABS, { recursive: true });
     }
-    cb(null, uploadDir);
+    cb(null, UPLOAD_DIR_ABS);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

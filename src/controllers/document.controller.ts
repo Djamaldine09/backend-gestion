@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Resultat from '../models/Resultat';
@@ -320,8 +322,14 @@ export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: 
 
 export const downloadJustificatif = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-        const { type } = req.params;
+        const type = String(req.params.type || '');
         const userId = req.user?.id;
+
+        const validTypes = ['photoIdentite', 'acteNaissance', 'diplomePrecedent', 'photoSupp'];
+        if (!validTypes.includes(type)) {
+            res.status(400).json({ message: 'Type de document invalide' });
+            return;
+        }
 
         const candidat = await Candidat.findOne({ user: userId });
         if (!candidat) {
@@ -329,13 +337,24 @@ export const downloadJustificatif = async (req: AuthenticatedRequest, res: Respo
             return;
         }
 
-        const filePath = candidat.piecesJustificatives[type as keyof typeof candidat.piecesJustificatives];
-        if (!filePath) {
+        const piece = candidat.piecesJustificatives?.[type as keyof typeof candidat.piecesJustificatives];
+        const relativePath = piece?.chemin;
+        if (!piece || !relativePath) {
             res.status(404).json({ message: 'Document non trouvé' });
             return;
         }
 
-        res.download(filePath);
+        // `chemin` is stored relative to the backend root (see uploadDocument in candidat.controller.ts)
+        const absolutePath = path.isAbsolute(relativePath)
+            ? relativePath
+            : path.join(__dirname, '../..', relativePath);
+
+        if (!fs.existsSync(absolutePath)) {
+            res.status(404).json({ message: 'Fichier introuvable sur le serveur' });
+            return;
+        }
+
+        res.download(absolutePath);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

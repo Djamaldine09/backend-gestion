@@ -55,13 +55,13 @@ export const getCurrentCandidat = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    const candidatFormatted = candidat.toObject();
+    const candidatFormatted = candidat.toObject() as any;
     if (candidatFormatted.dateNaissance) {
       candidatFormatted.dateNaissance = new Date(candidatFormatted.dateNaissance).toISOString().slice(0, 10);
     }
 
-    const centreSource = candidatFormatted.centreAffecte || {};
-    const centreRelation = candidatFormatted.centreExamen || {};
+    const centreSource: any = candidatFormatted.centreAffecte || {};
+    const centreRelation: any = candidatFormatted.centreExamen || {};
     const mergedCentre = {
       ...centreRelation,
       ...centreSource,
@@ -258,7 +258,10 @@ export const uploadDocument = async (req: MulterRequest, res: Response): Promise
       return;
     }
 
-    const destinationPath = path.relative(path.join(__dirname, '..'), req.file.path).replace(/\\/g, '/');
+    // `req.file.path` est déjà un chemin absolu car UPLOAD_DIR est absolu (voir plus
+    // haut). On le stocke tel quel : cohérent avec inscription.controller.ts et géré
+    // directement par downloadJustificatif dans document.controller.ts.
+    const destinationPath = req.file.path;
     console.log(`  📁 Saving ${type} with path: ${destinationPath}`);
     
     // Assigner avec la structure correcte: { status, chemin }
