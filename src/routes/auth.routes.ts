@@ -39,9 +39,12 @@ const uploadAvatar = multer({
     storage: avatarStorage,
     limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
     fileFilter: (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (!allowed.includes(file.mimetype)) {
-            cb(new Error('Format d\'image non supporté. Utilisez JPG, PNG, WEBP ou GIF.'));
+        const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'];
+        const extension = path.extname(file.originalname).toLowerCase();
+
+        if (!allowedMimeTypes.includes(file.mimetype) && !allowedExtensions.includes(extension)) {
+            cb(new Error('Format d\'image non supporté. Utilisez JPG, PNG, WEBP, GIF, HEIC ou HEIF.'));
             return;
         }
         cb(null, true);
