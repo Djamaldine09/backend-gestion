@@ -13,9 +13,9 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
   try {
     const { error } = await resend.emails.send({
       // "onboarding@resend.dev" permet de tester immédiatement sans configurer de domaine
-      from: 'ExamGest <onboarding@resend.dev>',
+      from: 'Exam Mada <onboarding@resend.dev>',
       to: email,
-      subject: 'Réinitialisation de votre mot de passe - ExamGest',
+      subject: 'Réinitialisation de votre mot de passe - Exam Mada',
       html: `
         <!DOCTYPE html>
         <html>
@@ -27,7 +27,7 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #0C6478 0%, #BDEE98 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">ExamGest</h1>
+              <h1 style="color: white; margin: 0; font-size: 24px;">Exam Mada</h1>
             </div>
             <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-radius: 0 0 10px 10px;">
               <h2 style="color: #0C6478; margin-top: 0;">Réinitialisation de votre mot de passe</h2>
@@ -39,7 +39,7 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
               <p style="font-size: 14px; color: #666;">Ce lien expire dans 1 heure.</p>
               <p style="font-size: 14px; color: #666;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
               <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-              <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">© 2026 ExamGest. Tous droits réservés.</p>
+              <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">© 2026 Exam Mada. Tous droits réservés.</p>
             </div>
           </div>
         </body>
