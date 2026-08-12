@@ -281,9 +281,21 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     try {
         const { email } = req.body;
 
+        if (!email) {
+            res.status(400).json({ message: 'Email requis' });
+            return;
+        }
+
         const user = await User.findOne({ email });
+
+        // Message générique dans tous les cas : on ne révèle jamais si un email
+        // est enregistré ou non (évite l'énumération de comptes).
+        const genericResponse = {
+            message: "Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoyé.",
+        };
+
         if (!user) {
-            res.status(404).json({ message: 'Aucun utilisateur trouvé avec cet email' });
+            res.status(200).json(genericResponse);
             return;
         }
 
@@ -295,16 +307,20 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         user.resetPasswordExpiry = new Date(resetTokenExpiry);
         await user.save();
 
-        // Send email with reset link
-        const emailSent = await sendPasswordResetEmail(email, resetToken);
-        
-        if (!emailSent) {
-            console.error('Erreur lors de l\'envoi de l\'email de réinitialisation');
-        }
+        // On répond immédiatement au client : l'envoi d'email ne doit jamais
+        // bloquer la réponse HTTP (un SMTP lent/mal configuré ne doit pas
+        // provoquer un timeout côté frontend).
+        res.status(200).json(genericResponse);
 
-        res.status(200).json({ 
-            message: 'Email de réinitialisation envoyé avec succès'
-        });
+        sendPasswordResetEmail(email, resetToken)
+            .then((sent) => {
+                if (!sent) {
+                    console.error(`[forgotPassword] Échec d'envoi de l'email de réinitialisation à ${email}`);
+                }
+            })
+            .catch((error) => {
+                console.error(`[forgotPassword] Erreur inattendue lors de l'envoi de l'email à ${email}:`, error);
+            });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

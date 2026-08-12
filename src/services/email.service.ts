@@ -1,17 +1,36 @@
 import nodemailer from 'nodemailer';
 
-// Configuration du transporteur SMTP (Gmail)
+// Si les identifiants SMTP ne sont pas configurés, on le signale clairement au démarrage
+// au lieu de laisser les requêtes échouer silencieusement (ou traîner jusqu'au timeout).
+const smtpConfigured = Boolean(process.env.SMTP_USER && process.env.SMTP_PASSWORD);
+if (!smtpConfigured) {
+  console.error(
+    '[email.service] SMTP_USER / SMTP_PASSWORD manquants : l\'envoi d\'email (mot de passe oublié, etc.) ne fonctionnera pas tant que ces variables ne sont pas définies.'
+  );
+}
+
+// Configuration du transporteur SMTP (Gmail par défaut)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true pour 465, false pour les autres ports
+  secure: process.env.SMTP_PORT === '465', // true pour 465, false pour les autres ports (STARTTLS)
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
+  // Timeouts courts : sans ça, une config SMTP invalide/absente peut faire "pendre"
+  // la requête HTTP jusqu'à ce qu'axios timeout côté frontend (erreur générique confuse).
+  connectionTimeout: 8000,
+  greetingTimeout: 8000,
+  socketTimeout: 8000,
 });
 
-export const sendPasswordResetEmail = async (email: string, resetToken: string) => {
+export const sendPasswordResetEmail = async (email: string, resetToken: string): Promise<boolean> => {
+  if (!smtpConfigured) {
+    console.error('[email.service] Envoi annulé : SMTP_USER / SMTP_PASSWORD non configurés sur le serveur.');
+    return false;
+  }
+
   const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
   const mailOptions = {
