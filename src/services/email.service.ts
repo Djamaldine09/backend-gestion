@@ -1,4 +1,7 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+const dnsResolve4 = dns.promises.resolve4;
 
 // Si les identifiants SMTP ne sont pas configurés, on le signale clairement au démarrage
 // au lieu de laisser les requêtes échouer silencieusement (ou traîner jusqu'au timeout).
@@ -9,21 +12,65 @@ if (!smtpConfigured) {
   );
 }
 
-// Configuration du transporteur SMTP (Gmail par défaut)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_PORT === '465', // true pour 465, false pour les autres ports (STARTTLS)
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  // Timeouts courts : sans ça, une config SMTP invalide/absente peut faire "pendre"
-  // la requête HTTP jusqu'à ce qu'axios timeout côté frontend (erreur générique confuse).
-  connectionTimeout: 8000,
-  greetingTimeout: 8000,
-  socketTimeout: 8000,
-});
+const smtpHostname = process.env.SMTP_HOST || 'smtp.gmail.com';
+const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+const smtpSecure = process.env.SMTP_PORT === '465';
+
+// Cache de l'IPv4 résolue pour éviter une résolution DNS à chaque email.
+let cachedIPv4: { address: string; expiresAt: number } | null = null;
+const IPV4_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Résout le hostname SMTP en IPv4 explicitement.
+ *
+ * Pourquoi : Nodemailer résout lui-même le hostname en A/AAAA et essaie les
+ * adresses IPv4 puis IPv6, MAIS il ne propose aucune option pour forcer IPv4
+ * uniquement — sur des hébergeurs comme Render (plan gratuit), les connexions
+ * sortantes vers Gmail peuvent échouer avec ENETUNREACH (pas de route), que ce
+ * soit en IPv4 ou IPv6 selon les cas. En résolvant nous-mêmes et en donnant
+ * directement l'adresse IP à Nodemailer comme "host", on élimine toute
+ * ambiguïté de résolution et on force une connexion IPv4 directe.
+ */
+async function resolveSmtpIPv4(): Promise<string | null> {
+  if (cachedIPv4 && cachedIPv4.expiresAt > Date.now()) {
+    return cachedIPv4.address;
+  }
+  try {
+    const addresses = await dnsResolve4(smtpHostname);
+    if (addresses.length > 0) {
+      cachedIPv4 = { address: addresses[0], expiresAt: Date.now() + IPV4_CACHE_TTL_MS };
+      return addresses[0];
+    }
+  } catch (error) {
+    console.error(`[email.service] Impossible de résoudre ${smtpHostname} en IPv4 :`, error);
+  }
+  return null;
+}
+
+async function buildTransporter() {
+  const ipv4 = await resolveSmtpIPv4();
+
+  return nodemailer.createTransport({
+    // Si la résolution IPv4 échoue, on retombe sur le hostname (comportement par défaut).
+    host: ipv4 || smtpHostname,
+    port: smtpPort,
+    secure: smtpSecure, // true pour 465, false pour les autres ports (STARTTLS)
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+    // Nécessaire quand "host" est une IP littérale : le certificat TLS de Gmail
+    // est émis pour "smtp.gmail.com", pas pour l'IP, donc on doit préciser le
+    // nom de serveur attendu (SNI + vérification du certificat).
+    tls: { servername: smtpHostname },
+    name: smtpHostname,
+    // Timeouts courts : sans ça, une config SMTP invalide/absente peut faire "pendre"
+    // la requête HTTP jusqu'à ce qu'axios timeout côté frontend (erreur générique confuse).
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 8000,
+  });
+}
 
 export const sendPasswordResetEmail = async (email: string, resetToken: string): Promise<boolean> => {
   if (!smtpConfigured) {
@@ -69,6 +116,7 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
   };
 
   try {
+    const transporter = await buildTransporter();
     await transporter.sendMail(mailOptions);
     console.log('Email de réinitialisation envoyé à:', email);
     return true;
@@ -77,5 +125,3 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
     return false;
   }
 };
-
-export default transporter;
