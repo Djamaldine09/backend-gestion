@@ -1,4 +1,9 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// 1. FORCER NODE.JS À UTILISER IPv4 PAR DÉFAUT
+// Cela empêche l'erreur ENETUNREACH sur Render qui ne supporte pas l'IPv6 sortant.
+dns.setDefaultResultOrder('ipv4first');
 
 const smtpConfigured = Boolean(process.env.SMTP_USER && process.env.SMTP_PASSWORD);
 if (!smtpConfigured) {
@@ -7,10 +12,10 @@ if (!smtpConfigured) {
   );
 }
 
-// Utiliser le port 465 par défaut sur Render (SSL direct)
+// Configuration pour le port 465 (SSL direct) recommandé sur Render
 const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
 const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
-const isSecure = smtpPort === 465; // true pour 465, false pour 587
+const isSecure = smtpPort === 465; 
 
 const transporter = nodemailer.createTransport({
   host: smtpHost,
@@ -18,9 +23,8 @@ const transporter = nodemailer.createTransport({
   secure: isSecure,
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD, // Doit être un "Mot de passe d'application" Gmail
+    pass: process.env.SMTP_PASSWORD, // Doit être le Mot de passe d'application Google !
   },
-  // Sur Render, il vaut mieux laisser un timeout standard (10-15s)
   connectionTimeout: 15000,
   greetingTimeout: 15000,
   socketTimeout: 15000,
@@ -61,7 +65,7 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string):
             <p style="font-size: 14px; color: #666;">Ce lien expire dans 1 heure.</p>
             <p style="font-size: 14px; color: #666;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">© 2024 ExamGest. Tous droits réservés.</p>
+            <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">© 2026 ExamGest. Tous droits réservés.</p>
           </div>
         </div>
       </body>
