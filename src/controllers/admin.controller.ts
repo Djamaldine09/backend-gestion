@@ -9,8 +9,26 @@ import AuditLog from '../models/AuditLog';
 import Affectation from '../models/Affectation';
 import Examen from '../models/Examen' 
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+const PDFDocument = require('pdfkit');
 
 const USER_SAFE_FIELDS = 'nom prenom email role telephone createdAt updatedAt';
+
+function escapeCsv(value: unknown): string {
+  const text = String(value ?? 'N/A');
+  if (/[",\n\r;]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? 'N/A')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = Number(value);
@@ -505,6 +523,114 @@ export const exportReport = async (req: AuthenticatedRequest, res: Response): Pr
     }
   } catch (error: any) {
     console.error('Export error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const exportReportDownload = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const format = String(req.query.format || 'csv').toLowerCase();
+    const [candidatsByRegion, centresByRegion, resultatsByStatus] = await Promise.all([
+      Candidat.aggregate([
+        { $group: { _id: { $ifNull: ['$centreAffecte.region', '$region'] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      CentreExamen.aggregate([
+        { $group: { _id: '$region', centres: { $sum: 1 }, capacity: { $sum: '$capaciteMaximale' } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Resultat.aggregate([
+        { $group: { _id: '$statutFinal', count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    const generatedAt = new Date();
+
+    if (format === 'csv') {
+      const csv = [
+        'Section;Libelle;Valeur;Capacite',
+        ...candidatsByRegion.map((r: any) => `Candidats par region;${escapeCsv(r._id)};${r.count};`),
+        ...centresByRegion.map((r: any) => `Centres par region;${escapeCsv(r._id)};${r.centres};${r.capacity}`),
+        ...resultatsByStatus.map((r: any) => `Resultats par statut;${escapeCsv(r._id)};${r.count};`),
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=rapport-national.csv');
+      res.send(`\ufeff${csv}`);
+      return;
+    }
+
+    if (format === 'excel') {
+      const rows = [
+        ...candidatsByRegion.map((r: any) => ['Candidats par region', r._id || 'N/A', r.count, '']),
+        ...centresByRegion.map((r: any) => ['Centres par region', r._id || 'N/A', r.centres, r.capacity]),
+        ...resultatsByStatus.map((r: any) => ['Resultats par statut', r._id || 'N/A', r.count, '']),
+      ];
+
+      const html = `<!doctype html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+  <h1>Rapport national</h1>
+  <p>Genere le ${escapeHtml(generatedAt.toLocaleString('fr-FR'))}</p>
+  <table border="1">
+    <thead>
+      <tr><th>Section</th><th>Libelle</th><th>Valeur</th><th>Capacite</th></tr>
+    </thead>
+    <tbody>
+      ${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=rapport-national.xls');
+      res.send(html);
+      return;
+    }
+
+    if (format === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=rapport-national.pdf');
+
+      const doc = new PDFDocument({ margin: 48, size: 'A4' });
+      doc.pipe(res);
+      doc.fontSize(20).text('Rapport national', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#666').text(`Genere le ${generatedAt.toLocaleString('fr-FR')}`, { align: 'center' });
+      doc.moveDown(1.5);
+
+      const drawSection = (title: string, rows: any[], valueKey: string, capacityKey?: string) => {
+        doc.fillColor('#111').fontSize(14).text(title);
+        doc.moveDown(0.4);
+
+        if (rows.length === 0) {
+          doc.fontSize(10).fillColor('#666').text('Aucune donnee disponible.');
+          doc.moveDown();
+          return;
+        }
+
+        rows.forEach((row) => {
+          const label = row._id || 'N/A';
+          const value = row[valueKey] ?? 0;
+          const capacity = capacityKey ? ` - Capacite: ${row[capacityKey] ?? 0}` : '';
+          doc.fontSize(10).fillColor('#222').text(`${label}: ${value}${capacity}`);
+        });
+        doc.moveDown();
+      };
+
+      drawSection('Candidats par region', candidatsByRegion, 'count');
+      drawSection('Centres par region', centresByRegion, 'centres', 'capacity');
+      drawSection('Resultats par statut', resultatsByStatus, 'count');
+      doc.end();
+      return;
+    }
+
+    res.status(400).json({ message: 'Format non supporte. Utilisez csv, pdf ou excel.' });
+  } catch (error: any) {
+    console.error('Export report download error:', error);
     res.status(500).json({ message: error.message });
   }
 };

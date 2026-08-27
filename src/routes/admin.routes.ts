@@ -22,7 +22,7 @@ import {
   getAuditLogs,
   affectCandidatsToCentres,
   getAffectations,
-  exportReport,
+  exportReportDownload,
   resetCandidatStatus,
   validateCandidat
 } from '../controllers/admin.controller';
@@ -61,7 +61,7 @@ const adminRouter = Router();
 adminRouter.use(protect, restrictTo('ADMIN'));
 adminRouter.get('/dashboard', getNationalDashboard);
 adminRouter.get('/reports/national', getNationalReport);
-adminRouter.get('/reports/export', exportReport);
+adminRouter.get('/reports/export', exportReportDownload);
 adminRouter.get('/stats/detailed', getDetailedStats);
 adminRouter.get('/reports/region/:region', getReportByRegion);
 adminRouter.get('/audit', getAuditLogs);
