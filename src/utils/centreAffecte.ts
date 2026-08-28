@@ -18,6 +18,22 @@ type CentreLike = {
   [key: string]: any;
 };
 
+export function genererNumeroSalle(
+  numeroTable: string | number,
+  salleConfiguree?: string | null,
+  tablesParSalle = 30,
+): string {
+  const salle = String(salleConfiguree ?? '').trim();
+  if (salle && !/^auto(?:matique)?$/i.test(salle)) return salle;
+
+  const table = typeof numeroTable === 'number'
+    ? numeroTable
+    : Number.parseInt(String(numeroTable).replace(/^[^0-9]*/, ''), 10);
+
+  if (!Number.isFinite(table) || table < 1 || tablesParSalle < 1) return 'AUTO';
+  return String(Math.ceil(table / tablesParSalle));
+}
+
 export function normalizeCentreCoords(centre: CentreLike | null | undefined) {
   if (!centre) return undefined;
 
