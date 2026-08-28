@@ -6,7 +6,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import Candidat, { ICandidat } from '../models/Candidat';
 import User from '../models/User';
 import CentreExamen from '../models/CentreExamen';
-import { buildCentreAffectePayload, ensureCandidateCentreAffecte } from '../utils/centreAffecte';
+import { buildCentreAffectePayload, ensureCandidateCentreAffecte, genererNumeroSalle } from '../utils/centreAffecte';
 
 type MulterRequest = AuthenticatedRequest & {
   file?: Express.Multer.File;
@@ -29,7 +29,7 @@ async function findCandidate(userId: string) {
     });
 }
 
-function buildConvocationPayload(candidat: ICandidat) {
+function buildConvocationPayload(candidat: ICandidat, salle: string, numeroPlace: string) {
   const convocation = candidat.convocation;
   if (!convocation) {
     throw new Error('Convocation non générée pour ce candidat.');
@@ -40,8 +40,8 @@ function buildConvocationPayload(candidat: ICandidat) {
     candidatId: String(candidat._id),
     matricule: candidat.numeroMatricule || 'UNKNOWN',
     examenId: convocation.examenId,
-    salle: convocation.salle,
-    place: convocation.numeroPlace,
+    salle,
+    place: numeroPlace,
   };
   const serialized = `${payloadBase.candidatId}|${payloadBase.matricule}|${payloadBase.examenId}|${payloadBase.salle}|${payloadBase.place}`;
   return { ...payloadBase, hash: createQrHash(serialized) };
@@ -165,7 +165,19 @@ export const getConvocation = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    const payload = buildConvocationPayload(candidat);
+    const centreAffecte = (candidat as any).centreAffecte || {};
+    const numeroPlace = String(centreAffecte.numeroPlace || convocation.numeroPlace || 'N/A');
+    const salle = genererNumeroSalle(
+      numeroPlace,
+      centreAffecte.salle || convocation.salle,
+    );
+    const payload = buildConvocationPayload(candidat, salle, numeroPlace);
+
+    // L'affectation peut être créée après la publication de la convocation.
+    if (convocation.salle !== salle || convocation.numeroPlace !== numeroPlace) {
+      convocation.salle = salle;
+      convocation.numeroPlace = numeroPlace;
+    }
     const responseData = {
       qrPayload: JSON.stringify(payload),
       candidatId: String(candidat._id),
