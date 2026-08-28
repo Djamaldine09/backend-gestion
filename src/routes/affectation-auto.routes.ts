@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { protect, restrictTo } from '../middlewares/auth.middleware';
 import {
   affecterCandidatsNationaux,
+  corrigerSallesAuto,
   getAffectationStats
 } from '../controllers/affectation-auto.controller';
 
@@ -36,6 +37,13 @@ router.post(
   protect,
   restrictTo('ADMIN', 'RESPONSABLE'),
   affecterCandidatsNationaux
+);
+
+router.post(
+  '/corriger-salles',
+  protect,
+  restrictTo('ADMIN', 'RESPONSABLE'),
+  corrigerSallesAuto
 );
 
 /**

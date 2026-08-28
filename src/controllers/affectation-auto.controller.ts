@@ -5,7 +5,7 @@ import CentreExamen from '../models/CentreExamen';
 import Affectation from '../models/Affectation';
 import Examen from '../models/Examen';
 import jwt from 'jsonwebtoken';
-import { buildCentreAffectePayload } from '../utils/centreAffecte';
+import { buildCentreAffectePayload, genererNumeroSalle } from '../utils/centreAffecte';
 
 /**
  * FONCTION PRINCIPALE: Affectation automatique des candidats
@@ -283,6 +283,7 @@ export const affecterCandidatsNationaux = async (
 
         // Générer numéro de table
         const numeroTable = `T-${String(compteurTable).padStart(3, '0')}`;
+        const numeroSalle = genererNumeroSalle(numeroTable, centres[indexCentre].salle);
 
         // Générer QR code (JWT unique)
         const qrCode = jwt.sign(
@@ -308,7 +309,7 @@ export const affecterCandidatsNationaux = async (
             : undefined;
 
         candidat.centreAffecte = buildCentreAffectePayload(centreDoc, {
-          salle: 'AUTO',
+          salle: numeroSalle,
           numeroPlace: numeroTable,
           telephone: centreDoc.telephone,
           email: centreDoc.email,
@@ -328,7 +329,7 @@ export const affecterCandidatsNationaux = async (
         const affectationData: any = {
           candidat: candidat._id,
           centre: centres[indexCentre]._id,
-          salle: 'AUTO',
+          salle: numeroSalle,
           numeroPlace: numeroTable,
           statut: 'CONFIRMEE'
         };
@@ -403,6 +404,97 @@ export const affecterCandidatsNationaux = async (
     res.status(500).json({
       succes: false,
       message: error.message
+    });
+  }
+};
+
+export const corrigerSallesAuto = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { examenId } = req.body || {};
+    const candidatQuery: any = {
+      $or: [
+        { 'centreAffecte.salle': { $exists: false } },
+        { 'centreAffecte.salle': '' },
+        { 'centreAffecte.salle': 'AUTO' },
+        { 'convocation.salle': { $exists: false } },
+        { 'convocation.salle': '' },
+        { 'convocation.salle': 'AUTO' },
+      ],
+    };
+
+    if (examenId) {
+      const examen = await Examen.findById(examenId).select('titre');
+      candidatQuery.$and = [{ $or: [{ examen: examenId }, { examen: examen?.titre }] }];
+    }
+
+    const candidats = await Candidat.find(candidatQuery);
+    let candidatsCorriges = 0;
+
+    for (const candidat of candidats) {
+      const centre = candidat.centreExamen
+        ? await CentreExamen.findById(candidat.centreExamen).select('salle')
+        : null;
+      const numeroPlace =
+        candidat.centreAffecte?.numeroPlace ||
+        candidat.convocation?.numeroPlace ||
+        'T-001';
+      const salle = genererNumeroSalle(numeroPlace, centre?.salle || candidat.centreAffecte?.salle);
+
+      const update: any = {
+        'centreAffecte.salle': salle,
+      };
+
+      if (!candidat.centreAffecte?.numeroPlace) {
+        update['centreAffecte.numeroPlace'] = numeroPlace;
+      }
+
+      if (candidat.convocation) {
+        update['convocation.salle'] = salle;
+        if (!candidat.convocation.numeroPlace) {
+          update['convocation.numeroPlace'] = numeroPlace;
+        }
+      }
+
+      await Candidat.updateOne({ _id: candidat._id }, { $set: update });
+      candidatsCorriges++;
+    }
+
+    const affectationQuery: any = {
+      $or: [
+        { salle: { $exists: false } },
+        { salle: '' },
+        { salle: 'AUTO' },
+      ],
+    };
+
+    if (examenId) {
+      const examen = await Examen.findById(examenId).select('titre');
+      affectationQuery.$and = [{ $or: [{ examen: examenId }, { examenType: examen?.titre }] }];
+    }
+
+    const affectations = await Affectation.find(affectationQuery).populate('centre', 'salle');
+    let affectationsCorrigees = 0;
+
+    for (const affectation of affectations) {
+      const centreSalle = (affectation.centre as any)?.salle;
+      const salle = genererNumeroSalle(affectation.numeroPlace, centreSalle);
+      await Affectation.updateOne({ _id: affectation._id }, { $set: { salle } });
+      affectationsCorrigees++;
+    }
+
+    res.status(200).json({
+      succes: true,
+      message: 'Salles AUTO corrigees avec succes',
+      candidatsCorriges,
+      affectationsCorrigees,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      succes: false,
+      message: error.message,
     });
   }
 };

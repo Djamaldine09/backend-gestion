@@ -1,6 +1,6 @@
 import Candidat from '../models/Candidat';
 import CentreExamen from '../models/CentreExamen';
-import { buildCentreAffectePayload } from '../utils/centreAffecte';
+import { buildCentreAffectePayload, genererNumeroSalle } from '../utils/centreAffecte';
 
 export const lancerAffectationAutomatique = async (): Promise<{ succes: number; echecs: number }> => {
     let candidatsAffectesCount = 0;
@@ -44,6 +44,8 @@ export const lancerAffectationAutomatique = async (): Promise<{ succes: number; 
                 if (centreTrouve) {
                     // Ajouter le candidat au centre
                     centreTrouve.candidatsAffectes.push(candidat._id as any);
+                    const numeroTable = `T-${String(centreTrouve.candidatsAffectes.length).padStart(3, '0')}`;
+                    const numeroSalle = genererNumeroSalle(numeroTable, centreTrouve.salle);
                     await centreTrouve.save();
 
                     // Enregistrer le centre final sur le dossier du candidat
@@ -56,8 +58,8 @@ export const lancerAffectationAutomatique = async (): Promise<{ succes: number; 
                             : undefined;
 
                     candidat.centreAffecte = buildCentreAffectePayload(centreTrouve, {
-                        salle: 'AUTO',
-                        numeroPlace: 'AUTO',
+                        salle: numeroSalle,
+                        numeroPlace: numeroTable,
                         telephone: centreTrouve.telephone,
                         email: centreTrouve.email,
                         coords: centreCoords,
