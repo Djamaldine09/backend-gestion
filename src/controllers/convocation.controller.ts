@@ -17,8 +17,8 @@ export const generateConvocationQR = async (req: AuthenticatedRequest, res: Resp
             return;
         }
 
-        if (!candidat.convocation) {
-            res.status(404).json({ message: 'Convocation non générée pour ce candidat' });
+        if (!candidat.convocation || candidat.convocation.estPublie !== true) {
+            res.status(404).json({ message: 'Convocation non publiée pour ce candidat' });
             return;
         }
 
@@ -83,8 +83,8 @@ export const verifyConvocation = async (req: AuthenticatedRequest, res: Response
             return;
         }
 
-        if (!candidat.convocation) {
-            res.status(404).json({ message: 'Convocation non générée pour ce candidat' });
+        if (!candidat.convocation || candidat.convocation.estPublie !== true) {
+            res.status(404).json({ message: 'Convocation non publiée pour ce candidat' });
             return;
         }
 

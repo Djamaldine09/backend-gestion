@@ -137,8 +137,8 @@ export const telechargerConvocationPDF = async (req: AuthenticatedRequest, res: 
         }
 
         const convocation = candidat.convocation;
-        if (!convocation) {
-            res.status(404).json({ message: 'Convocation non générée pour ce candidat.' });
+        if (!convocation || convocation.estPublie !== true) {
+            res.status(404).json({ message: 'Convocation non publiée pour ce candidat.' });
             return;
         }
 

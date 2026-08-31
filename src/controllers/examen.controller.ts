@@ -178,6 +178,7 @@ export const publishConvocations = async (req: AuthenticatedRequest, res: Respon
             const centre = (cand as any).centreAffecte || {} as any;
 
             (cand as any).convocation = {
+                estPublie: true,
                 examenId: String(examen._id),
                 dateEpreuve: examen.dateDebut,
                 heureDebut: '08:00',

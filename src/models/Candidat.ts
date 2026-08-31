@@ -59,6 +59,7 @@ export interface ICandidat extends Document {
     };
     
     convocation?: {
+        estPublie: boolean;
         examenId: string;
         dateEpreuve: Date;
         heureDebut: string;
@@ -149,6 +150,7 @@ const CandidatSchema: Schema = new Schema({
     },
     
     convocation: {
+        estPublie: { type: Boolean, default: false },
         examenId: { type: String },
         dateEpreuve: { type: Date },
         heureDebut: { type: String },
